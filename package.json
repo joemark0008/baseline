@@ -1,5 +1,5 @@
 {
-  "name": "his-project-planner",
+  "name": "baseline",
   "version": "0.1.0",
   "private": true,
   "description": "Spec Kit project boilerplate: NestJS GraphQL API + React/Vite web app with Better Auth",

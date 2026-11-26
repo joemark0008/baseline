@@ -1,4 +1,4 @@
-# his-project-planner Constitution
+# baseline Constitution
 
 ## Core Principles
 
@@ -249,7 +249,7 @@ The project is an npm-workspaces monorepo with two deployable packages, `apps/ap
 and `apps/web` (Vite/React), plus `packages/` for shared code. Each app has its own Dockerfile
 and runs as its own container behind HTTPS on any container host (by default on the `<name>-api`
 and `<name>` subdomains). The repository is a boilerplate: `scripts/init.sh <project-name>`
-renames the placeholder `his-project-planner` everywhere and, with `--provision`, creates the
+renames the placeholder `baseline` everywhere and, with `--provision`, creates the
 database and role on the shared Postgres described in the root `CLAUDE.md`. Linting (ESLint 10 flat config) and formatting (Prettier) are configured
 once at the root for both apps.
 

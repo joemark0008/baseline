@@ -1,5 +1,5 @@
 {
-  "name": "@his_project_planner/api",
+  "name": "@baseline/api",
   "version": "0.1.0",
   "private": true,
   "description": "NestJS GraphQL API with Better Auth and Prisma",

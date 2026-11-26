@@ -27,11 +27,11 @@ Expected: the preview route renders the implementation summary, all nine lifecyc
 ## Coolify visual review
 
 The project is deployed through Coolify according to `/root/project/CLAUDE.md` as the custom
-service `his-project-planner` (see `plan.md`, Deployment Notes). The visual review URL is
-`https://his-project-planner.joemarkgimeno.com/preview`. Check it with:
+service `baseline` (see `plan.md`, Deployment Notes). The visual review URL is
+`https://baseline.joemarkgimeno.com/preview`. Check it with:
 
 ```sh
-curl -sI https://his-project-planner.joemarkgimeno.com/preview | head -1
+curl -sI https://baseline.joemarkgimeno.com/preview | head -1
 ```
 
 Expected: `HTTP/2 200`. The preview needs no database or sign-in; after changing the preview,

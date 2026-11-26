@@ -86,12 +86,12 @@ The preview should make these parts legible on the first screen: implementation 
 ## Deployment Notes
 
 - Deployed through Coolify only, following `/root/project/CLAUDE.md`: custom service
-  `his-project-planner` (project `dev-projects`, environment `development`) running the two images
+  `baseline` (project `dev-projects`, environment `development`) running the two images
   built on the host from `apps/api/Dockerfile` and `apps/web/Dockerfile`.
 - Single origin: nginx in the web container serves the SPA and proxies `/graphql` and `/api/` to
   the api container. There is no separate API subdomain; `COOKIE_DOMAIN` is empty.
 - No host port is published; the proxy routes to the containers' exposed ports (80 and 3001).
-- Visual review URL: `https://his-project-planner.joemarkgimeno.com/preview` (verified live, HTTP 200).
+- Visual review URL: `https://baseline.joemarkgimeno.com/preview` (verified live, HTTP 200).
   The api container and shared Postgres are present for the rest of the application, but the
   preview route does not call them.
 - Shipping a change to the preview requires rebuilding the web image and redeploying the service

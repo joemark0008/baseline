@@ -16,7 +16,7 @@ Coolify resource so nginx can reach the api by its compose service name `api`.
 ## Steps
 
 1. **Rename** – run `scripts/init.sh <project-name> --provision` from the project root.
-   It replaces `his-project-planner` everywhere (including `package-lock.json`'s workspace
+   It replaces `baseline` everywhere (including `package-lock.json`'s workspace
    names), writes `.env.example`, initialises git, creates the Postgres role + database in
    `shared-postgres`, and prints the env vars to set. Capture the printed `DATABASE_URL` and
    `BETTER_AUTH_SECRET`; never write them into files. If `npm ci` later fails with "Missing:

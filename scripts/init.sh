@@ -3,7 +3,7 @@
 #
 #   scripts/init.sh <project-name> [--domain <root>] [--subdomain <name>] [--provision] [--no-git]
 #
-# 1. Replaces the placeholder "his-project-planner" (and "his_project_planner" for DB names)
+# 1. Replaces the placeholder "baseline" (and "baseline" for DB names)
 #    with <project-name> in every tracked text file, and removes boilerplate-only blocks.
 # 2. Writes .env.example with the derived URL https://<name>.<root> (web and API share one origin:
 #    nginx in the web image proxies /graphql and /api/ to the api container, so there is no -api subdomain;
@@ -16,8 +16,8 @@
 # Only POSIX sh + sed + find are required (Linux or macOS); Node is NOT needed on the host.
 set -eu
 
-PLACEHOLDER="his-project-planner"
-PLACEHOLDER_DB="his_project_planner"
+PLACEHOLDER="baseline"
+PLACEHOLDER_DB="baseline"
 ROOT_DOMAIN="joemarkgimeno.com"
 SHARED_PG_CONTAINER="yffa7j63cyfnqtfalg4wstj7"
 

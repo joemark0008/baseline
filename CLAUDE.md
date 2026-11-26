@@ -1,4 +1,4 @@
-# his-project-planner
+# baseline
 
 Read `.specify/memory/constitution.md` before writing code: it fixes the stack, the layer rules
 and the review gates. The images run on any container host; when deploying to the Coolify server, the root

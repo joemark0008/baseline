@@ -1,4 +1,4 @@
-# his-project-planner
+# baseline
 
 A full-stack starter: a **NestJS GraphQL API** and a **React (Vite) web app**, with invitation-only
 sign-in and Postgres through Prisma. It ships as two Docker images (`api` and `web`) that run on
@@ -48,8 +48,8 @@ docker run -d --name postgres16 -p 5432:5432 -e POSTGRES_PASSWORD=postgres postg
 
 ```sh
 docker exec -i -e PGPASSWORD=postgres postgres16 psql -h 127.0.0.1 -U postgres <<'SQL'
-CREATE ROLE his_project_planner LOGIN NOSUPERUSER CREATEDB PASSWORD 'change-me';
-CREATE DATABASE his_project_planner OWNER his_project_planner;
+CREATE ROLE baseline LOGIN NOSUPERUSER CREATEDB PASSWORD 'change-me';
+CREATE DATABASE baseline OWNER baseline;
 SQL
 ```
 
@@ -61,7 +61,7 @@ SQL
 cat > .env <<EOF
 NODE_ENV=development
 PORT=3001
-DATABASE_URL=postgres://his_project_planner:change-me@localhost:5432/his_project_planner
+DATABASE_URL=postgres://baseline:change-me@localhost:5432/baseline
 BETTER_AUTH_SECRET=$(openssl rand -hex 32)
 BETTER_AUTH_URL=http://localhost:3001
 WEB_ORIGINS=http://localhost:4173
@@ -397,9 +397,9 @@ Render, Railway, a VPS with Docker Compose, Kubernetes. Each push to `main` runs
 builds both images. Build them from the repository root:
 
 ```sh
-docker build -f apps/api/Dockerfile -t his-project-planner-api .
+docker build -f apps/api/Dockerfile -t baseline-api .
 docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://app.example.com \
-  -t his-project-planner-web .
+  -t baseline-web .
 ```
 
 | Image | Listens on | Health check | Notes                                                                                      |
