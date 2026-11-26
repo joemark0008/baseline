@@ -5,8 +5,9 @@
 #
 # 1. Replaces the placeholder "his-project-planner" (and "his_project_planner" for DB names)
 #    with <project-name> in every tracked text file, and removes boilerplate-only blocks.
-# 2. Writes .env.example with the derived URLs: https://<name>.<root> and https://<name>-api.<root>
-#    (--domain defaults to joemarkgimeno.com, the Coolify server's domain).
+# 2. Writes .env.example with the derived URL https://<name>.<root> (web and API share one origin:
+#    nginx in the web image proxies /graphql and /api/ to the api container, so there is no -api subdomain;
+#    --domain defaults to joemarkgimeno.com, the Coolify server's domain).
 # 3. Initialises a fresh git repository (unless --no-git).
 # 4. With --provision (only on the Coolify server with the shared Postgres from the root CLAUDE.md):
 #    creates the database + role in shared-postgres and prints the env vars to set on the api.
@@ -57,7 +58,7 @@ cd "$(dirname "$0")/.."
 
 echo "project:   $NAME"
 echo "web:       https://$SLUG.$ROOT_DOMAIN"
-echo "api:       https://$SLUG-api.$ROOT_DOMAIN"
+echo "api:       https://$SLUG.$ROOT_DOMAIN/graphql (proxied by the web container)"
 echo "database:  $DB (role $DB)"
 
 # 1. rename placeholder in tracked text files (skip generated/vendored trees)
@@ -81,10 +82,10 @@ done
 
 # 2. .env.example with derived URLs (secrets stay placeholders)
 sed_i .env.example \
-  -e "s|^BETTER_AUTH_URL=.*|BETTER_AUTH_URL=https://$SLUG-api.$ROOT_DOMAIN|" \
+  -e "s|^BETTER_AUTH_URL=.*|BETTER_AUTH_URL=https://$SLUG.$ROOT_DOMAIN|" \
   -e "s|^WEB_ORIGINS=.*|WEB_ORIGINS=https://$SLUG.$ROOT_DOMAIN|" \
-  -e "s|^COOKIE_DOMAIN=.*|COOKIE_DOMAIN=.$ROOT_DOMAIN|" \
-  -e "s|^VITE_API_URL=.*|VITE_API_URL=https://$SLUG-api.$ROOT_DOMAIN|"
+  -e "s|^COOKIE_DOMAIN=.*|COOKIE_DOMAIN=|" \
+  -e "s|^VITE_API_URL=.*|VITE_API_URL=https://$SLUG.$ROOT_DOMAIN|"
 
 # 3. fresh git history
 if [ "$DO_GIT" -eq 1 ] && [ ! -d .git ]; then
@@ -105,10 +106,10 @@ if [ "$PROVISION" -eq 1 ]; then
   echo "Set these env vars on the api (password shown once):"
   echo "  DATABASE_URL=postgres://$DB:$PW@$SHARED_PG_CONTAINER:5432/$DB"
   echo "  BETTER_AUTH_SECRET=$(openssl rand -hex 32)"
-  echo "  BETTER_AUTH_URL=https://$SLUG-api.$ROOT_DOMAIN"
+  echo "  BETTER_AUTH_URL=https://$SLUG.$ROOT_DOMAIN"
   echo "  WEB_ORIGINS=https://$SLUG.$ROOT_DOMAIN"
-  echo "  COOKIE_DOMAIN=.$ROOT_DOMAIN"
-  echo "and on the web (build args): VITE_API_URL=https://$SLUG-api.$ROOT_DOMAIN"
+  echo "  COOKIE_DOMAIN=   (empty: single origin, host-only cookie)"
+  echo "and on the web (build args): VITE_API_URL=https://$SLUG.$ROOT_DOMAIN"
 fi
 
 echo

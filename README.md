@@ -382,7 +382,7 @@ secrets settings. Never commit them.
 | `BETTER_AUTH_SECRET`                        | API     | Session signing secret (`openssl rand -hex 32`)                                     |
 | `BETTER_AUTH_URL`                           | API     | Public URL of the API                                                               |
 | `WEB_ORIGINS`                               | API     | Web app URL(s) allowed to call the API, comma-separated                             |
-| `COOKIE_DOMAIN`                             | API     | Shared parent domain of web and API in production (`.example.com`); empty locally   |
+| `COOKIE_DOMAIN`                             | API     | Empty: web and API share one origin (nginx proxies `/graphql`, `/api/`)             |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | API     | Optional Google sign-in; set both or neither                                        |
 | `PORT`, `NODE_ENV`                          | API     | `3001`; `development` locally, `production` when deployed                           |
 | `RATE_LIMIT_SIGN_IN_MAX` / `_WINDOW`        | API     | Sign-in attempts per window per address (`5` / `60` s)                              |
@@ -400,7 +400,7 @@ builds both images. Build them from the repository root:
 
 ```sh
 docker build -f apps/api/Dockerfile -t his-project-planner-api .
-docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://api.example.com \
+docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://app.example.com \
   -t his-project-planner-web .
 ```
 
@@ -416,10 +416,10 @@ What the host needs to provide:
   trusts one proxy hop for the caller's address. If a CDN such as Cloudflare sits in front of the
   proxy, keep `cf-connecting-ip` first in `CLIENT_IP_HEADERS`; otherwise set it to
   `x-forwarded-for`.
-- **Web and API on the same parent domain**, e.g. `app.example.com` and `api.example.com`, with
-  `COOKIE_DOMAIN=.example.com`, `BETTER_AUTH_URL=https://api.example.com` and
-  `WEB_ORIGINS=https://app.example.com`. The session cookie is shared across subdomains;
-  web and API on unrelated domains is not supported.
+- **One domain for both containers.** The web container's nginx proxies `/graphql` and `/api/`
+  to the api container (service name `api`, port 3001), so set `VITE_API_URL`,
+  `BETTER_AUTH_URL` and `WEB_ORIGINS` all to `https://app.example.com` and leave
+  `COOKIE_DOMAIN` empty. Run both containers in one compose stack so `api` resolves.
 
 After the first deploy, create the admin with the setup token from the API container's logs (see
 [Run it on your machine](#run-it-on-your-machine), step 6).
