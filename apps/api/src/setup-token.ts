@@ -1,7 +1,7 @@
 import './config/load-dotenv.js'
 import { randomBytes } from 'node:crypto'
 import { prisma } from './prisma/prisma.client.js'
-import { hashSetupToken } from './setup/setup.service.js'
+import { hashSetupToken } from './feature/setup/setup.service.js'
 
 /**
  * Reissue the first-run setup token without restarting the API.

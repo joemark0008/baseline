@@ -2,10 +2,10 @@ import '../src/config/load-dotenv.js'
 import 'reflect-metadata'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import { AccessService } from '../src/access/access.service.js'
+import { AccessService } from '../src/feature/access/access.service.js'
 import { AppModule } from '../src/app.module.js'
 import { APP_ENV, type AppEnv } from '../src/config/env.js'
-import { InvitesService } from '../src/invites/invites.service.js'
+import { InvitesService } from '../src/feature/invites/invites.service.js'
 import { PrismaService } from '../src/prisma/prisma.service.js'
 
 /** Password resets and changes over real HTTP sessions (feature 002-password-reset). */

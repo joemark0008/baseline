@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { APIError } from 'better-auth/api'
 import { BeforeHook, Hook, type AuthHookContext } from '@thallesp/nestjs-better-auth'
-import { InvitesService } from '../../invites/invites.service.js'
+import { InvitesService } from '../../feature/invites/invites.service.js'
 
 /** Invitation-only sign-up: reject /sign-up/email unless a pending invite exists for the email. */
 @Hook()

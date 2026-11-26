@@ -33,8 +33,8 @@ describeWithDb('Rate limiting (e2e)', () => {
   // Resolved after the dynamic import so the lowered limits are what the module sees.
   let services: {
     PrismaService: typeof import('../src/prisma/prisma.service.js').PrismaService
-    InvitesService: typeof import('../src/invites/invites.service.js').InvitesService
-    AccessService: typeof import('../src/access/access.service.js').AccessService
+    InvitesService: typeof import('../src/feature/invites/invites.service.js').InvitesService
+    AccessService: typeof import('../src/feature/access/access.service.js').AccessService
   }
 
   beforeAll(async () => {
@@ -51,8 +51,8 @@ describeWithDb('Rate limiting (e2e)', () => {
     const { corsOptions } = await import('../src/config/cors.js')
     services = {
       PrismaService: (await import('../src/prisma/prisma.service.js')).PrismaService,
-      InvitesService: (await import('../src/invites/invites.service.js')).InvitesService,
-      AccessService: (await import('../src/access/access.service.js')).AccessService,
+      InvitesService: (await import('../src/feature/invites/invites.service.js')).InvitesService,
+      AccessService: (await import('../src/feature/access/access.service.js')).AccessService,
     }
     const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile()
     app = moduleFixture.createNestApplication({ bodyParser: false })

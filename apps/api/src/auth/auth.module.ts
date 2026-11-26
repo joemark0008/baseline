@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth'
 import { loadEnv } from '../config/env.js'
-import { InvitesModule } from '../invites/invites.module.js'
+import { InvitesModule } from '../feature/invites/invites.module.js'
 import { authRefusalLogger } from '../rate-limit/auth-refusal-logger.js'
 import { auth } from './auth.config.js'
 import { BlockAdminEndpointsHook } from './hooks/block-admin-endpoints.hook.js'

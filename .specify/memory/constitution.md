@@ -278,11 +278,12 @@ once at the root for both apps.
   the real `AppModule` against Postgres (`DATABASE_URL`), and cover each feature's persistence.
   Frontend components with logic ship with React Testing Library tests; routes with loaders ship
   with loader tests.
-- **Module layout is the Nest CLI standard.** Each backend feature is one folder under
-  `apps/api/src/<feature>/` with plural, kebab-case names, as `nest g` produces it:
+- **Module layout is the Nest CLI standard, under `feature/`.** Each backend feature is one
+  folder under `apps/api/src/feature/<feature>/` with plural, kebab-case names, laid out as
+  `nest g` produces it (generate with `nest g <schematic> feature/<name>`):
 
   ```text
-  <feature>/
+  feature/<feature>/
     <feature>.module.ts         providers, imports, exports (the service)
     <feature>.resolver.ts       GraphQL (or <feature>.controller.ts for REST)
     <feature>.service.ts        business rules; injects PrismaService
@@ -294,8 +295,9 @@ once at the root for both apps.
     app.e2e-spec.ts             end-to-end tests against the real AppModule
   ```
 
-  Cross-cutting modules (`auth/`, `config/`, `graphql/`, `prisma/`, `health/`, `common/`) use the
-  same naming. ESLint `no-restricted-imports` rules in `eslint.config.mjs` MUST fail the build on:
+  Cross-cutting modules (`auth/`, `config/`, `graphql/`, `prisma/`, `health/`, `common/`,
+  `rate-limit/`) stay directly under `apps/api/src/` and use the same naming; only domain
+  features live under `feature/`, mirroring `apps/web/src/feature/<domain>/`. ESLint `no-restricted-imports` rules in `eslint.config.mjs` MUST fail the build on:
   - any import of the raw Prisma client (`@prisma/*`, `generated/prisma`, `prisma/prisma.client`)
     outside `src/prisma/`, `src/auth/` and `src/setup-token.ts`;
   - any `better-auth` or `@thallesp/nestjs-better-auth` import outside `auth/`, resolvers

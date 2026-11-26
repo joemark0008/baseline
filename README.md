@@ -20,7 +20,6 @@ The project rules (stack, folder layout, tests, review checklist) live in
 
 **Contents**
 
-
 - [Run it on your machine](#run-it-on-your-machine)
 - [Everyday commands](#everyday-commands)
 - [Add a feature](#add-a-feature)
@@ -28,7 +27,6 @@ The project rules (stack, folder layout, tests, review checklist) live in
 - [Where things live](#where-things-live)
 - [Environment variables](#environment-variables)
 - [Deployment](#deployment)
-
 
 ## Run it on your machine
 
@@ -288,7 +286,7 @@ change.
 ```text
 apps/api/                     NestJS 12 · GraphQL (code-first) · Prisma 7 · Better Auth
   prisma/schema/              database models, one <feature>.prisma per feature; migrations in prisma/migrations/
-  src/<feature>/              one folder per feature: module, resolver, service, dto/, entities/
+  src/feature/<feature>/      one folder per domain feature: module, resolver, service, dto/, entities/
   src/common/pagination/      PageArgs, PageMeta, Paginated(), toPageQuery(), buildPageMeta()
   src/auth/                   Better Auth setup and the invite-only sign-up hook
   test/                       end-to-end tests
@@ -328,7 +326,7 @@ reactivates them.
 
 ### Protect a new feature
 
-1. Declare the feature's area next to its module, e.g. `apps/api/src/orders/orders.access.ts`:
+1. Declare the feature's area next to its module, e.g. `apps/api/src/feature/orders/orders.access.ts`:
 
    ```ts
    export const ordersArea = defineArea({
@@ -423,4 +421,3 @@ What the host needs to provide:
 
 After the first deploy, create the admin with the setup token from the API container's logs (see
 [Run it on your machine](#run-it-on-your-machine), step 6).
-

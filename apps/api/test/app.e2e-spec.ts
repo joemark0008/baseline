@@ -3,9 +3,9 @@ import 'reflect-metadata'
 import type { INestApplication } from '@nestjs/common'
 import { Test, type TestingModule } from '@nestjs/testing'
 import { AppModule } from '../src/app.module.js'
-import { InvitesService } from '../src/invites/invites.service.js'
+import { InvitesService } from '../src/feature/invites/invites.service.js'
 import { PrismaService } from '../src/prisma/prisma.service.js'
-import { SetupService } from '../src/setup/setup.service.js'
+import { SetupService } from '../src/feature/setup/setup.service.js'
 
 /** Boots the real AppModule against the database in DATABASE_URL (CI: the Postgres service). */
 const describeWithDb = process.env.DATABASE_URL ? describe : describe.skip
