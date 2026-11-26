@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
@@ -11,11 +12,14 @@ import { ADMIN_ROLE_ID, MEMBER_ROLE_ID, type RoleKind } from '../access/role-kin
 import { PageArgs } from '../../common/pagination/page-args.js'
 import { buildPageMeta, toPageQuery } from '../../common/pagination/paginate.js'
 import { legacyRoleFor, UserRole } from '../../common/user-role.enum.js'
+import { APP_ENV, type AppEnv } from '../../config/env.js'
+import { EmailService } from '../../email/email.service.js'
 import { PrismaService } from '../../prisma/prisma.service.js'
 import { AcceptInviteResult } from './dto/accept-invite.output.js'
 import { InviteValidation } from './dto/invite-validation.output.js'
 import { InvitesPage } from './dto/invites-page.output.js'
 import { Invite } from './entities/invite.entity.js'
+import { buildInviteUrl } from './links.js'
 
 /** Invites expire after seven days. */
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -44,18 +48,21 @@ export class InvitesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: AccessService,
+    private readonly email: EmailService,
+    @Inject(APP_ENV) private readonly env: AppEnv,
   ) {}
 
   /**
    * Issues a fresh invite into a role (Member when none is given), superseding any pending
-   * invite for the same email. Only Admins may invite someone into Admin.
+   * invite for the same email, and emails the link (feature 008). Only Admins may invite someone
+   * into Admin. `emailSent` is false when delivery is off or failed; the invite still stands.
    */
   async inviteUser(input: {
     email: string
     roleId?: string | null
     legacyRole?: UserRole | 'admin' | 'user' | null
     invitedById: string
-  }): Promise<{ invite: Invite; token: string }> {
+  }): Promise<{ invite: Invite; token: string; inviteUrl: string; emailSent: boolean }> {
     const email = this.normalizeEmail(input.email)
     const roleId =
       input.roleId ?? (input.legacyRole === UserRole.ADMIN ? ADMIN_ROLE_ID : MEMBER_ROLE_ID)
@@ -84,7 +91,16 @@ export class InvitesService {
       },
       include: WITH_ROLE,
     })
-    return { invite: this.toInvite(row), token }
+    const invite = this.toInvite(row)
+    const inviteUrl = buildInviteUrl(this.env.webOrigins[0], token, email)
+    const emailSent = await this.email.sendInvite({
+      to: email,
+      inviteId: invite.id,
+      inviteUrl,
+      roleName: role.name,
+      expiresAt: invite.expiresAt,
+    })
+    return { invite, token, inviteUrl, emailSent }
   }
 
   async validateToken(token: string): Promise<InviteValidation> {

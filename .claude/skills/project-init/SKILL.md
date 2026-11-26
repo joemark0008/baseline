@@ -49,12 +49,12 @@ Coolify resource so nginx can reach the api by its compose service name `api`.
          - WEB_ORIGINS=https://<slug>.joemarkgimeno.com
          - CLIENT_IP_HEADERS=cf-connecting-ip,x-forwarded-for
          - TZ=Asia/Manila
-       expose: ["3001"]
+       expose: ['3001']
        restart: unless-stopped
      web:
        image: <project-name>-web:latest
        pull_policy: never
-       expose: ["80"]
+       expose: ['80']
        depends_on: [api]
        restart: unless-stopped
    ```

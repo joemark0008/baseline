@@ -91,6 +91,10 @@ input InviteUserInput {
 }
 
 type InviteUserResult {
+  """
+  True when the invitation email was accepted by the email provider; otherwise hand over the link.
+  """
+  emailSent: Boolean!
   invite: Invite!
 
   """One-time link to hand to the invitee. The token is not stored."""
@@ -183,6 +187,10 @@ type PasswordPolicy {
 }
 
 type PasswordResetLink {
+  """
+  True when the reset email was accepted by the email provider; otherwise hand over the link.
+  """
+  emailSent: Boolean!
   expiresAt: DateTime!
 
   """Give this to the person; it works once."""

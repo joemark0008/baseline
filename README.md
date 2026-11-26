@@ -382,6 +382,9 @@ secrets settings. Never commit them.
 | `WEB_ORIGINS`                               | API     | Web app URL(s) allowed to call the API, comma-separated                             |
 | `COOKIE_DOMAIN`                             | API     | Empty: web and API share one origin (nginx proxies `/graphql`, `/api/`)             |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | API     | Optional Google sign-in; set both or neither                                        |
+| `RESEND_API_KEY`                            | API     | Resend API key for invite and reset emails; unset writes emails to the log instead  |
+| `EMAIL_FROM`                                | API     | Sender shown to recipients (`Name <address>`); default is Resend's test sender      |
+| `EMAIL_REPLY_TO`                            | API     | Optional Reply-To address                                                           |
 | `PORT`, `NODE_ENV`                          | API     | `3001`; `development` locally, `production` when deployed                           |
 | `RATE_LIMIT_SIGN_IN_MAX` / `_WINDOW`        | API     | Sign-in attempts per window per address (`5` / `60` s)                              |
 | `RATE_LIMIT_LINKS_MAX` / `_WINDOW`          | API     | Invite, reset-link and setup attempts (`10` / `60` s)                               |

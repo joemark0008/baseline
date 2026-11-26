@@ -12,6 +12,16 @@
 
 The guideline describes a nine-phase implementation lifecycle: Kickoff, Data Gathering, Data Build-Up, Requirements Analysis, Training, Pre-Go-Live, Go-Live, Post-Go-Live Support, and Monitoring & Continuous Improvement. It identifies hospital/client and vendor roles, phase outputs, schedules, contacts, and data-readiness activities. Its detailed examples focus mainly on kickoff and data preparation; later phases are described at a higher level.
 
+## Clarifications
+
+### Session 2026-11-26
+
+- Q: Which permission levels does a project need beyond plain membership? → A: Two project roles: Manager and Member. Managers create and tailor the plan, add or remove members and manage stakeholders; Members edit tasks, deliverables and comments; non-members are denied.
+- Q: How do people become project participants? → A: A Manager adds an existing account or invites by email; an email invite uses the application's existing invite-only sign-up and adds the person to the project when they accept.
+- Q: Who may change the standard nine-phase template and its suggested deliverables? → A: Application administrators only; project Managers tailor their own project's copy. The template is editable in the app, not fixed in code.
+- Q: Can a deliverable carry uploaded files in the first release? → A: No. Links plus readiness and review status only; file uploads are a planned later increment.
+- Q: How do participants learn about comments and changes? → A: In-app activity feed for everything; comments support @mentions; a mention, a task assignment and a project invite each send one email (delivered through Resend). No due-date reminders or notification preferences in this release.
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Create an HIS implementation project (Priority: P1)
@@ -133,8 +143,8 @@ The template may include suggested deliverables derived from the guideline, but 
 **Project and lifecycle**
 
 - **FR-001**: The system MUST allow an authorized user to create an HIS implementation project with a project name, hospital/client name, and planned date range.
-- **FR-002**: The system MUST provide a standard implementation template containing the nine phases listed in this specification, in the listed order.
-- **FR-003**: The system MUST allow authorized project members to tailor phases and phase dates for one project without changing the standard template or other projects.
+- **FR-002**: The system MUST provide a standard implementation template containing the nine phases listed in this specification, in the listed order, with their suggested deliverables. Only application administrators MAY edit the template; a template change affects projects created afterwards, never existing projects.
+- **FR-003**: The system MUST allow a project Manager to tailor phases (add, rename, reorder, remove) and phase dates for one project without changing the standard template or other projects.
 - **FR-004**: A phase MUST support an accountable owner, planned start and end dates, status, and project-specific description.
 
 **Tasks and schedule**
@@ -148,15 +158,18 @@ The template may include suggested deliverables derived from the guideline, but 
 
 **Collaboration and access**
 
-- **FR-011**: The system MUST allow an authorized project manager to add and remove authenticated users as project participants, subject to the project's access rules.
-- **FR-012**: The system MUST allow authorized project participants to comment on tasks, with each comment attributed to its author and creation time.
+- **FR-011**: The system MUST allow a project Manager to add and remove participants and to set each participant's project role. A Manager adds a participant either by choosing an existing application account or by entering an email address; an email invite reuses the application's invite-only sign-up and the person joins the project with the chosen role when they accept.
+- **FR-011a**: A project has exactly two project roles: **Manager** (create and tailor the plan, manage participants and stakeholders, plus everything a Member can do) and **Member** (create, edit, assign, complete and delete tasks, update deliverables, comment). The project creator is its first Manager; a project MUST always keep at least one Manager.
+- **FR-012**: The system MUST allow project participants to comment on tasks, with each comment attributed to its author and creation time. A comment MAY @mention other participants of the same project.
+- **FR-012a**: The system MUST send one email notification when a participant is @mentioned in a comment, when a task is assigned to a participant, and when a person is invited to a project. No other events send email in this release; due-date reminders and per-user notification preferences are out of scope.
+- **FR-012b**: Notification and invite emails MUST be delivered through the configured email provider (Resend). Email delivery failures MUST NOT fail the originating action (comment, assignment, invite) and MUST be visible in the application log.
 - **FR-013**: The system MUST retain an activity history for material project, phase, task, and deliverable changes, identifying the actor, change, and time.
 - **FR-014**: The system MUST prevent users who are not project participants from viewing or changing project data.
 
 **Deliverables and stakeholder coordination**
 
-- **FR-015**: The system MUST provide suggested, phase-specific deliverables that project managers can tailor per project.
-- **FR-016**: A deliverable MUST support an owner, due date, readiness/review status, and review outcome.
+- **FR-015**: The system MUST copy the template's suggested, phase-specific deliverables into a new project, where a project Manager can tailor them (add, edit, remove) for that project only.
+- **FR-016**: A deliverable MUST support an owner, due date, readiness/review status, review outcome, and zero or more links (URLs with a label) to documents stored outside the planner. File uploads are out of scope for this release and planned as a later increment.
 - **FR-017**: The system MUST allow the team to track data-preparation categories and their readiness without requiring patient-level records.
 - **FR-018**: The system MUST allow authorized participants to maintain a project stakeholder directory, distinct from the list of authenticated project participants.
 - **FR-019**: The system MUST allow a meeting action to be recorded as a regular project task linked to a phase.
@@ -168,12 +181,13 @@ The template may include suggested deliverables derived from the guideline, but 
 
 ### Key Entities
 
-- **Implementation Project**: A hospital/client HIS implementation engagement with its participants, lifecycle plan, schedule, and activity.
+- **Implementation Template**: The administrator-maintained standard lifecycle: ordered phases and their suggested deliverables. Copied into each new project.
+- **Implementation Project**: A hospital/client HIS implementation engagement with its participants, lifecycle plan (its own copy of the template), schedule, and activity.
 - **Phase**: A named stage in the implementation lifecycle, with an owner, planned dates, status, tasks, and deliverables.
 - **Task**: A unit of project work assigned to an accountable owner, optionally scheduled and dependent on another task.
-- **Participant**: An authenticated user who has access to a specific implementation project.
+- **Participant**: An authenticated user who has access to a specific implementation project, with a project role of Manager or Member. A pending email invite is not yet a participant.
 - **Stakeholder Contact**: A hospital or vendor contact associated with the project who may or may not have an application account.
-- **Deliverable**: A phase output or readiness item with an owner, due date, status, and review outcome.
+- **Deliverable**: A phase output or readiness item with an owner, due date, status, review outcome, and optional document links.
 - **Comment**: A discussion entry attached to a task and attributed to its author and time.
 - **Activity Entry**: A record of a material project change, its actor, and when it occurred.
 
@@ -194,16 +208,13 @@ The template may include suggested deliverables derived from the guideline, but 
 - A new project starts from the nine-phase template, while each project may tailor its own phases and deliverables.
 - Hospital/client and vendor personnel may collaborate in one project, subject to project membership and access controls.
 - A stakeholder contact is not automatically an application user or project participant.
-- Comments on tasks and a recorded activity history are the first collaboration mechanisms; live chat, video meetings, and external email integrations are out of scope for this draft.
+- Comments with @mentions, a recorded activity history, and email on mention, assignment and invite are the collaboration mechanisms of this release; live chat, video meetings, and reading or syncing external mailboxes are out of scope.
 - The planner tracks master-data preparation and readiness, not the actual patient record data or full clinical datasets.
 - The existing authentication and authorization capabilities in the boilerplate will be reused; project-specific access rules will be defined in the plan.
 - Web/desktop use is the initial target. Mobile-specific requirements are not yet defined.
 
 ## Clarifications Needed
 
-- Should project members be added only from existing application accounts, or should project managers be able to invite new users by email?
+Deferred from the 2026-11-26 session (question quota reached); each project is treated as independent until decided:
+
 - Does the first release need multiple hospital implementations per client organization, or is each project managed independently?
-- Should task comments support @mentions and notifications in the first release, or is an activity feed sufficient?
-- Should deliverables support file uploads, or only links and readiness/review status?
-- Which project roles (for example, sponsor, client PM, department lead, vendor analyst, trainer, QA) need distinct permissions beyond project membership?
-- Are phase names/order and suggested deliverables editable by project managers, or should template changes be restricted to administrators?

@@ -29,10 +29,19 @@ describe('PasswordResetResolver', () => {
 
   it('creates a link as the signed-in caller and returns the web URL once', async () => {
     const expiresAt = new Date('2026-01-02T00:00:00Z')
-    service.create.mockResolvedValue({ token: 'abc_-1', expiresAt })
+    service.create.mockResolvedValue({
+      token: 'abc_-1',
+      url: 'https://app.example.com/reset-password?token=abc_-1',
+      expiresAt,
+      emailSent: false,
+    })
     const link = await resolver.createPasswordResetLink('bo', session)
     expect(service.create).toHaveBeenCalledWith('admin', 'bo')
-    expect(link).toEqual({ url: 'https://app.example.com/reset-password?token=abc_-1', expiresAt })
+    expect(link).toEqual({
+      url: 'https://app.example.com/reset-password?token=abc_-1',
+      expiresAt,
+      emailSent: false,
+    })
   })
 
   it('passes token checks and resets straight to the service', async () => {

@@ -8,6 +8,8 @@ import {
 import { Test } from '@nestjs/testing'
 import { AccessService } from '../access/access.service.js'
 import { AuthPasswords } from '../../auth/auth-passwords.js'
+import { APP_ENV } from '../../config/env.js'
+import { EmailService } from '../../email/email.service.js'
 import { PrismaService } from '../../prisma/prisma.service.js'
 import { PasswordResetService } from './password-reset.service.js'
 
@@ -29,10 +31,10 @@ type Where = Partial<{
   expiresAt: { gt: Date }
 }>
 
-const PEOPLE: Record<string, { name: string; banned: boolean }> = {
-  admin: { name: 'Ada', banned: false },
-  bo: { name: 'Bo', banned: false },
-  gone: { name: 'Gus', banned: true },
+const PEOPLE: Record<string, { name: string; email: string; banned: boolean }> = {
+  admin: { name: 'Ada', email: 'ada@x.dev', banned: false },
+  bo: { name: 'Bo', email: 'bo@x.dev', banned: false },
+  gone: { name: 'Gus', email: 'gus@x.dev', banned: true },
 }
 
 const sha256 = (t: string) => createHash('sha256').update(t).digest('hex')
@@ -100,6 +102,7 @@ describe('PasswordResetService', () => {
   let svc: PasswordResetService
   const passwords = { setPassword: vi.fn(), signOutEverywhere: vi.fn() }
   const access = { permissionsFor: vi.fn() }
+  const email = { sendPasswordReset: vi.fn() }
   const callerIs = (kind: 'ADMIN' | 'CUSTOM') =>
     access.permissionsFor.mockResolvedValue({
       role: { id: 'r', name: kind, kind },
@@ -110,6 +113,7 @@ describe('PasswordResetService', () => {
     vi.useFakeTimers({ now: new Date('2026-01-01T00:00:00Z') })
     vi.clearAllMocks()
     callerIs('ADMIN')
+    email.sendPasswordReset.mockResolvedValue(true)
     db = fakeDb()
     const module = await Test.createTestingModule({
       providers: [
@@ -117,6 +121,8 @@ describe('PasswordResetService', () => {
         { provide: PrismaService, useValue: { client: db.client } },
         { provide: AccessService, useValue: access },
         { provide: AuthPasswords, useValue: passwords },
+        { provide: EmailService, useValue: email },
+        { provide: APP_ENV, useValue: { webOrigins: ['https://app.example.com'] } },
       ],
     }).compile()
     svc = module.get(PasswordResetService)
@@ -144,6 +150,26 @@ describe('PasswordResetService', () => {
           after: { user: 'Bo' },
         }),
       ])
+    })
+
+    it('emails the reset link to the account email and reports it', async () => {
+      const result = await svc.create('admin', 'bo')
+      expect(result.url).toBe(`https://app.example.com/reset-password?token=${result.token}`)
+      expect(email.sendPasswordReset).toHaveBeenCalledWith({
+        to: 'bo@x.dev',
+        userId: 'bo',
+        name: 'Bo',
+        resetUrl: result.url,
+        expiresAt: result.expiresAt,
+      })
+      expect(result.emailSent).toBe(true)
+    })
+
+    it('still creates the link when the email cannot be sent', async () => {
+      email.sendPasswordReset.mockResolvedValue(false)
+      const result = await svc.create('admin', 'bo')
+      expect(result.emailSent).toBe(false)
+      expect(db.links).toHaveLength(1)
     })
 
     it('replaces the earlier link for the same person', async () => {

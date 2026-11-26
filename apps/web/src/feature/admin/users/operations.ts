@@ -74,6 +74,7 @@ export const INVITE_USER = graphql(`
         expiresAt
       }
       inviteUrl
+      emailSent
     }
   }
 `)
@@ -140,6 +141,7 @@ export const CREATE_PASSWORD_RESET_LINK = graphql(`
     createPasswordResetLink(userId: $userId) {
       url
       expiresAt
+      emailSent
     }
   }
 `)

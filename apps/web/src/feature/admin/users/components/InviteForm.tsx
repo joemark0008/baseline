@@ -8,19 +8,26 @@ import { NativeSelect } from '@/components/ui/select'
 export interface InviteFormProps {
   /** Roles the inviter may invite into, as the server lists them (default first). */
   roles: ReadonlyArray<{ id: string; name: string }>
-  onInvite: (email: string, roleId: string) => Promise<{ inviteUrl: string } | { error: string }>
+  onInvite: (
+    email: string,
+    roleId: string,
+  ) => Promise<{ inviteUrl: string; emailSent: boolean } | { error: string }>
 }
+
+type InviteOutcome = { inviteUrl: string; emailSent: boolean; email: string } | { error: string }
 
 export function InviteForm({ roles, onInvite }: InviteFormProps) {
   const [email, setEmail] = useState('')
   const [roleId, setRoleId] = useState(roles[0]?.id ?? '')
-  const [result, setResult] = useState<{ inviteUrl: string } | { error: string } | null>(null)
+  const [result, setResult] = useState<InviteOutcome | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
-    setResult(await onInvite(email.trim(), roleId))
+    const invitee = email.trim()
+    const outcome = await onInvite(invitee, roleId)
+    setResult('error' in outcome ? outcome : { ...outcome, email: invitee })
     setBusy(false)
   }
 
@@ -53,9 +60,14 @@ export function InviteForm({ roles, onInvite }: InviteFormProps) {
       </div>
       {result && 'inviteUrl' in result ? (
         <Alert variant="success">
-          <AlertTitle>Invitation created</AlertTitle>
+          <AlertTitle>
+            {result.emailSent ? `Invitation emailed to ${result.email}` : 'Invitation created'}
+          </AlertTitle>
           <AlertDescription className="break-all">
-            Send this link to the invitee (it is shown once): <code>{result.inviteUrl}</code>
+            {result.emailSent
+              ? 'They can also use this link (it is shown once): '
+              : 'Send this link to the invitee (it is shown once): '}
+            <code>{result.inviteUrl}</code>
           </AlertDescription>
         </Alert>
       ) : result && 'error' in result ? (

@@ -14,6 +14,8 @@ export interface ResetLink {
   name: string
   url: string
   expiresAt: unknown
+  /** Whether the email provider accepted the reset email (feature 008). */
+  emailSent: boolean
 }
 
 /** Shows a freshly created reset link in a modal. It's the only time the link can be seen. */
@@ -31,8 +33,11 @@ export function ResetLinkDialog({ link, onClose }: { link: ResetLink; onClose: (
         <DialogHeader>
           <DialogTitle>Password reset link for {link.name}</DialogTitle>
           <DialogDescription>
-            Works once, until {new Date(link.expiresAt as string).toLocaleString()}. Send it to{' '}
-            {link.name} yourself. It won't be shown again; if it's lost, create a new one.
+            {link.emailSent
+              ? `We emailed this link to ${link.name}. `
+              : `Send it to ${link.name} yourself. `}
+            Works once, until {new Date(link.expiresAt as string).toLocaleString()}. It won't be
+            shown again; if it's lost, create a new one.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 sm:flex-row">

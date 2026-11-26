@@ -1,4 +1,4 @@
-import { loadEnv } from './env.js'
+import { DEFAULT_EMAIL_FROM, loadEnv } from './env.js'
 
 const base = { DATABASE_URL: 'postgres://x', BETTER_AUTH_SECRET: 's' }
 
@@ -69,6 +69,29 @@ describe('loadEnv', () => {
         'cf-connecting-ip',
         'x-forwarded-for',
       ])
+    })
+  })
+
+  it('defaults email to the log transport and the Resend test sender', () => {
+    const env = loadEnv(base)
+    expect(env.email).toEqual({
+      resendApiKey: undefined,
+      from: DEFAULT_EMAIL_FROM,
+      replyTo: undefined,
+    })
+  })
+
+  it('reads the email provider settings, ignoring blank values', () => {
+    const env = loadEnv({
+      ...base,
+      RESEND_API_KEY: ' re_123 ',
+      EMAIL_FROM: 'Baseline <no-reply@example.com>',
+      EMAIL_REPLY_TO: '  ',
+    })
+    expect(env.email).toEqual({
+      resendApiKey: 're_123',
+      from: 'Baseline <no-reply@example.com>',
+      replyTo: undefined,
     })
   })
 })

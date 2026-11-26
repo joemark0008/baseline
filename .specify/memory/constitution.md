@@ -296,7 +296,7 @@ once at the root for both apps.
   ```
 
   Cross-cutting modules (`auth/`, `config/`, `graphql/`, `prisma/`, `health/`, `common/`,
-  `rate-limit/`) stay directly under `apps/api/src/` and use the same naming; only domain
+  `rate-limit/`, `email/`) stay directly under `apps/api/src/` and use the same naming; only domain
   features live under `feature/`, mirroring `apps/web/src/feature/<domain>/`. ESLint `no-restricted-imports` rules in `eslint.config.mjs` MUST fail the build on:
   - any import of the raw Prisma client (`@prisma/*`, `generated/prisma`, `prisma/prisma.client`)
     outside `src/prisma/`, `src/auth/` and `src/setup-token.ts`;

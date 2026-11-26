@@ -118,8 +118,11 @@ export function UsersPage() {
                       variables: { input: { email, roleId } },
                     })
                     if (!data) return { error: 'No response' }
-                    toast.success(`Invite created for ${email}`)
-                    return { inviteUrl: data.inviteUser.inviteUrl }
+                    const { inviteUrl, emailSent } = data.inviteUser
+                    toast.success(
+                      emailSent ? `Invitation emailed to ${email}` : `Invite created for ${email}`,
+                    )
+                    return { inviteUrl, emailSent }
                   } catch (e) {
                     return { error: message(e) }
                   }

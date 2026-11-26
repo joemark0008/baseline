@@ -7,3 +7,4 @@ apps/web/src/routeTree.gen.ts
 apps/api/schema.graphql
 package-lock.json
 .specify
+.claude/settings.local.json

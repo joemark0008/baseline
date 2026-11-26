@@ -7,7 +7,7 @@ and the review gates. The images run on any container host; when deploying to th
 - API: `apps/api` (NestJS 12, code-first GraphQL, Prisma 7, Better Auth). Every domain feature is
   one folder under `src/feature/<name>/` in the Nest CLI layout (`<feature>.module/resolver/service.ts`,
   `dto/`, `entities/`); cross-cutting modules (`auth`, `config`, `graphql`, `prisma`, `health`,
-  `common`, `rate-limit`) stay directly under `src/`. Services inject `PrismaService`. Scaffold with
+  `common`, `rate-limit`, `email`) stay directly under `src/`. Services inject `PrismaService`. Scaffold with
   `nest g` (`npm run g -w apps/api -- <schematic> feature/<name>`).
   E2E tests: `npm run test:e2e -w apps/api`.
 - Web: `apps/web` (React 19, Vite 8, TanStack Router, shadcn/ui, Apollo 4). Operations use the

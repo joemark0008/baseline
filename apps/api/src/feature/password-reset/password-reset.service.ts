@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
@@ -10,7 +11,10 @@ import { recordAccessChange } from '../access/access-change.js'
 import { AccessService } from '../access/access.service.js'
 import { AuthPasswords } from '../../auth/auth-passwords.js'
 import { assertPasswordPolicy } from '../../auth/password.js'
+import { APP_ENV, type AppEnv } from '../../config/env.js'
+import { EmailService } from '../../email/email.service.js'
 import { PrismaService } from '../../prisma/prisma.service.js'
+import { buildResetUrl } from './links.js'
 
 /** How long a reset link works (spec Clarifications: 24 hours, one project-wide setting). */
 export const PASSWORD_RESET_TTL_MS = 24 * 60 * 60 * 1000
@@ -38,10 +42,18 @@ export class PasswordResetService {
     private readonly prisma: PrismaService,
     private readonly access: AccessService,
     private readonly passwords: AuthPasswords,
+    private readonly email: EmailService,
+    @Inject(APP_ENV) private readonly env: AppEnv,
   ) {}
 
-  /** Admin role only. Replaces the person's earlier link. The token is returned once. */
-  async create(actorId: string, userId: string): Promise<{ token: string; expiresAt: Date }> {
+  /**
+   * Admin role only. Replaces the person's earlier link, emails it to the account's address
+   * (feature 008) and returns the token once. `emailSent` is false when delivery is off or failed.
+   */
+  async create(
+    actorId: string,
+    userId: string,
+  ): Promise<{ token: string; url: string; expiresAt: Date; emailSent: boolean }> {
     await this.assertAdmin(actorId)
     if (actorId === userId) {
       throw new BadRequestException('Change your own password in Settings → Account')
@@ -69,7 +81,15 @@ export class PasswordResetService {
         after: { user: person.name },
       })
     })
-    return { token, expiresAt }
+    const url = buildResetUrl(this.env.webOrigins[0], token)
+    const emailSent = await this.email.sendPasswordReset({
+      to: person.email,
+      userId,
+      name: person.name,
+      resetUrl: url,
+      expiresAt,
+    })
+    return { token, url, expiresAt, emailSent }
   }
 
   async validate(token: string): Promise<TokenStatus> {

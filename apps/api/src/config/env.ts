@@ -14,7 +14,20 @@ export interface AppEnv {
   rateLimit: RateLimitSettings
   /** Request headers the caller's address is read from, in order, lower-cased. */
   clientIpHeaders: string[]
+  /** Email delivery (feature 008). Without an API key, emails go to the log. */
+  email: EmailSettings
 }
+
+export interface EmailSettings {
+  /** Resend API key; unset selects the log transport. */
+  resendApiKey?: string
+  /** Sender as shown to recipients, e.g. `Baseline <no-reply@example.com>`. */
+  from: string
+  replyTo?: string
+}
+
+/** Resend's test sender: delivers only to the Resend account's own addresses. */
+export const DEFAULT_EMAIL_FROM = 'baseline <onboarding@resend.dev>'
 
 export interface RateLimitRule {
   max: number
@@ -95,5 +108,10 @@ export function loadEnv(source: Source = process.env): AppEnv {
       general: rateLimitRule(source, 'RATE_LIMIT_GENERAL', DEFAULT_RATE_LIMITS.general),
     },
     clientIpHeaders: list(source.CLIENT_IP_HEADERS, DEFAULT_CLIENT_IP_HEADERS),
+    email: {
+      resendApiKey: source.RESEND_API_KEY?.trim() || undefined,
+      from: source.EMAIL_FROM?.trim() || DEFAULT_EMAIL_FROM,
+      replyTo: source.EMAIL_REPLY_TO?.trim() || undefined,
+    },
   }
 }

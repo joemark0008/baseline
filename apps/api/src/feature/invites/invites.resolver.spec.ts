@@ -54,7 +54,12 @@ describe('InvitesResolver invite management', () => {
   })
 
   it('invites into the chosen role, passing the deprecated role through', async () => {
-    invitesService.inviteUser.mockResolvedValue({ invite: { email: 'a@b.dev' }, token: 't' })
+    invitesService.inviteUser.mockResolvedValue({
+      invite: { email: 'a@b.dev' },
+      token: 't',
+      inviteUrl: 'https://app.example.com/invite?token=t&email=a%40b.dev',
+      emailSent: true,
+    })
     const result = await resolver.inviteUser({ email: 'a@b.dev', roleId: 'r1', role: null }, {
       user: { id: 'u1', email: 'admin@b.dev' },
     } as never)
@@ -65,6 +70,7 @@ describe('InvitesResolver invite management', () => {
       invitedById: 'u1',
     })
     expect(result.inviteUrl).toContain('/invite?token=t')
+    expect(result.emailSent).toBe(true)
   })
 
   it('lists and revokes pending invites', async () => {

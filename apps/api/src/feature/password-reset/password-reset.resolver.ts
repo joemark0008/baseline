@@ -1,9 +1,7 @@
-import { Inject } from '@nestjs/common'
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { AllowAnonymous, Session } from '@thallesp/nestjs-better-auth'
 import type { AuthSession } from '../../auth/auth.config.js'
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../../auth/password.js'
-import { APP_ENV, type AppEnv } from '../../config/env.js'
 import { ChangePasswordInput } from './dto/change-password.input.js'
 import { ResetPasswordInput } from './dto/reset-password.input.js'
 import { PasswordPolicy } from './entities/password-policy.entity.js'
@@ -13,18 +11,13 @@ import { PasswordResetService } from './password-reset.service.js'
 import { PasswordService } from './password.service.js'
 import { OneTimeLinkOperation } from '../../rate-limit/rate-limit.decorators.js'
 
-export function buildResetUrl(webOrigin: string, token: string): string {
-  const url = new URL('/reset-password', webOrigin)
-  url.searchParams.set('token', token)
-  return url.toString()
-}
+export { buildResetUrl } from './links.js'
 
 @Resolver()
 export class PasswordResetResolver {
   constructor(
     private readonly resets: PasswordResetService,
     private readonly own: PasswordService,
-    @Inject(APP_ENV) private readonly env: AppEnv,
   ) {}
 
   // Public: the sign-in-free reset page shows the rules before the visitor types.
@@ -41,8 +34,8 @@ export class PasswordResetResolver {
     @Args('userId', { type: () => ID }) userId: string,
     @Session() session: AuthSession,
   ): Promise<PasswordResetLink> {
-    const { token, expiresAt } = await this.resets.create(session.user.id, userId)
-    return { url: buildResetUrl(this.env.webOrigins[0], token), expiresAt }
+    const { url, expiresAt, emailSent } = await this.resets.create(session.user.id, userId)
+    return { url, expiresAt, emailSent }
   }
 
   // Public: the visitor has no session; the token is the credential.

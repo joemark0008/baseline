@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { ForbiddenException, NotFoundException } from '@nestjs/common'
 import { Test, type TestingModule } from '@nestjs/testing'
 import { AccessService } from '../access/access.service.js'
+import { APP_ENV } from '../../config/env.js'
+import { EmailService } from '../../email/email.service.js'
 import { PrismaService } from '../../prisma/prisma.service.js'
 import { InvitesService } from './invites.service.js'
 
@@ -98,6 +100,7 @@ describe('InvitesService', () => {
     assignRole: vi.fn(),
     permissionsFor: vi.fn(),
   }
+  const email = { sendInvite: vi.fn() }
   const asActor = (kind: 'ADMIN' | 'CUSTOM') =>
     access.permissionsFor.mockResolvedValue({
       role: { id: 'x', name: 'x', kind },
@@ -108,12 +111,15 @@ describe('InvitesService', () => {
     vi.useFakeTimers({ now: new Date('2026-01-01T00:00:00Z') })
     vi.clearAllMocks()
     asActor('ADMIN')
+    email.sendInvite.mockResolvedValue(true)
     db = fakeDb()
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InvitesService,
         { provide: PrismaService, useValue: { client: db.client } },
         { provide: AccessService, useValue: access },
+        { provide: EmailService, useValue: email },
+        { provide: APP_ENV, useValue: { webOrigins: ['https://app.example.com'] } },
       ],
     }).compile()
     service = module.get(InvitesService)
@@ -146,6 +152,32 @@ describe('InvitesService', () => {
     await expect(service.accept(token, { userId: 'u-2', email: 'new@test.dev' })).rejects.toThrow(
       /already used/,
     )
+  })
+
+  it('emails the invitation link with the role name and expiry', async () => {
+    const result = await service.inviteUser({
+      email: 'New@Test.dev',
+      roleId: 'r_cashier',
+      invitedById: 'admin-1',
+    })
+    expect(result.inviteUrl).toBe(
+      `https://app.example.com/invite?token=${result.token}&email=new%40test.dev`,
+    )
+    expect(email.sendInvite).toHaveBeenCalledWith({
+      to: 'new@test.dev',
+      inviteId: result.invite.id,
+      inviteUrl: result.inviteUrl,
+      roleName: 'Cashier',
+      expiresAt: result.invite.expiresAt,
+    })
+    expect(result.emailSent).toBe(true)
+  })
+
+  it('still issues the invite when the email cannot be sent', async () => {
+    email.sendInvite.mockResolvedValue(false)
+    const result = await service.inviteUser({ email: 'a@b.dev', invitedById: 'admin-1' })
+    expect(result.emailSent).toBe(false)
+    expect((await service.validateToken(result.token)).valid).toBe(true)
   })
 
   it('uses Member when no role is chosen', async () => {
