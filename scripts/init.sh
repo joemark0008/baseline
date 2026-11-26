@@ -65,7 +65,7 @@ echo "database:  $DB (role $DB)"
 find . -type f \
   ! -path './.git/*' ! -path '*/node_modules/*' ! -path '*/dist/*' \
   ! -path './apps/api/src/generated/*' ! -path './apps/web/src/graphql/codegen/*' \
-  ! -name 'package-lock.json' ! -name '*.png' ! -name '*.ico' ! -name '*.jpg' \
+  ! -name '*.png' ! -name '*.ico' ! -name '*.jpg' \
   -exec grep -Il -e "$PLACEHOLDER" -e "$PLACEHOLDER_DB" {} + 2>/dev/null | while read -r f; do
     sed_i "$f" "s/$PLACEHOLDER_DB/$DB/g; s/$PLACEHOLDER/$SLUG/g"
   done
@@ -75,8 +75,8 @@ for f in CLAUDE.md README.md; do
 done
 # the boilerplate's own Spec Kit feature history does not belong to the new project
 rm -rf specs
-# the npm package scope and constitution title use the project name verbatim
-for f in package.json apps/*/package.json; do
+# the npm package scope (package.json files and the lock's workspace entries) uses the project name verbatim
+for f in package.json package-lock.json apps/*/package.json; do
   if [ -f "$f" ]; then sed_i "$f" "s/@$SLUG\//@$DB\//g"; fi
 done
 
