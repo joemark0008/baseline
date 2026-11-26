@@ -336,7 +336,7 @@ reactivates them.
    })
    ```
 
-2. Add it to the list in `apps/api/src/access/areas.ts`. It now shows as a row in every role's
+2. Add it to the list in `apps/api/src/feature/access/areas.ts`. It now shows as a row in every role's
    grid, unticked for everyone except Admin.
 3. Mark each operation: `@RequirePermission('orders', 'view')`. A caller without it gets
    `FORBIDDEN` with "You don't have access to view orders."
@@ -366,7 +366,7 @@ Better Auth still hashes passwords and keeps sessions: the app calls it through
 HTTP, so every change goes through these rules. If you turn on Better Auth's `cookieCache`, a
 signed-out device keeps working until its cached cookie expires (`maxAge`).
 
-The lifetime is `PASSWORD_RESET_TTL_MS` in `apps/api/src/password-reset/password-reset.service.ts`.
+The lifetime is `PASSWORD_RESET_TTL_MS` in `apps/api/src/feature/password-reset/password-reset.service.ts`.
 
 ## Environment variables
 
