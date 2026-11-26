@@ -393,6 +393,19 @@ secrets settings. Never commit them.
 | `VITE_API_URL`                              | Web     | API URL, baked in at build time                                                     |
 | `VITE_ENABLE_GOOGLE_AUTH`                   | Web     | `true` shows the Google button                                                      |
 
+## Live development on the server
+
+For hot reload without rebuilding images, the Coolify service `baseline-dev` (root `CLAUDE.md`,
+section 3b) bind-mounts this folder and runs `npm run dev` for both apps in `node:22-alpine`
+containers: Nest in watch mode and Vite with HMR. Saving a file on the server updates
+https://baseline-dev.joemarkgimeno.com. It uses its own database (`baseline_dev`) and its own
+secrets, so it never touches the production service `baseline`.
+
+The dev server keeps the single-origin layout: `apps/web/vite.config.ts` proxies `/graphql` and
+`/api/` to `API_PROXY_TARGET` (the api container) and, when `PUBLIC_HOST` is set, accepts that
+hostname and runs HMR over `wss` on port 443. Locally both variables are unset and nothing
+changes.
+
 ## Deployment
 
 The app is two Docker images, so it runs anywhere containers do: Coolify, Dokku, Fly.io,

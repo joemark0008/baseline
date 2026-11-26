@@ -46,7 +46,7 @@ description: 'Executable tasks for email delivery through Resend'
 ## Phase 6: Polish and verification
 
 - [x] T016 Run `npm test -w apps/api`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build` for both apps.
-- [ ] T017 Set `EMAIL_FROM` (and `RESEND_API_KEY` when provided) on the Coolify service `baseline`, rebuild both images, redeploy, and confirm the boot log names the active transport.
+- [x] T017 Set `EMAIL_FROM` (and `RESEND_API_KEY` when provided) on the Coolify service `baseline`, rebuild both images, redeploy, and confirm the boot log names the active transport.
 - [ ] T018 Validate the quickstart: invite an address and observe either the sent email or the `[Email] would send` log line.
 
 ## Dependencies & Execution Order
