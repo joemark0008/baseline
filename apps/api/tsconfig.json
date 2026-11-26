@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "declaration": false,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "incremental": true,
+    "strictPropertyInitialization": false,
+    "types": ["node", "vitest/globals"],
+    "isolatedModules": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "prisma.config.ts",
+    "vitest.config.ts",
+    "vitest.e2e.config.ts"
+  ]
+}

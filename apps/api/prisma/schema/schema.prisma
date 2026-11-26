@@ -1,0 +1,18 @@
+// Generator and database settings. Models live next to this file, one file per feature:
+//   auth.prisma            Better Auth (User, Session, Account, Verification)
+//   setup.prisma           first-run setup wizard
+//   invites.prisma         invitation-only sign-up
+//   access.prisma          roles, permissions and the History audit trail
+//   password-reset.prisma  Admin-issued password reset links
+// Prisma reads every .prisma file in this folder (constitution: Technology Stack › ORM).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

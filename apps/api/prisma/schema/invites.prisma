@@ -1,0 +1,18 @@
+// Invitation-only sign-up (feature module `invites`).
+
+model Invite {
+  id          String    @id @default(cuid())
+  email       String
+  roleId      String
+  role        Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  tokenHash   String
+  invitedById String
+  invitedBy   User      @relation("InviteInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([tokenHash])
+  @@index([email])
+  @@map("invite")
+}

@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+
+# generated
+apps/api/src/generated/
+apps/web/src/graphql/codegen/
+
+# editors
+.idea/
+.vscode/
+.DS_Store
+*.tsbuildinfo

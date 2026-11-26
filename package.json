@@ -1,0 +1,36 @@
+{
+  "name": "his-project-planner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spec Kit project boilerplate: NestJS GraphQL API + React/Vite web app with Better Auth",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "codegen": "npm run codegen -w apps/web",
+    "schema:generate": "npm run schema:generate -w apps/api",
+    "schema:check": "npm run schema:generate && git diff --exit-code -- apps/api/schema.graphql"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.0.0",
+    "prettier": "^3.6.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}

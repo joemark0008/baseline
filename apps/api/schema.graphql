@@ -1,0 +1,368 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AcceptInviteResult {
+  role: UserRole! @deprecated(reason: "Use accessRole; admin/user is derived from the role.")
+  roleName: String!
+}
+
+type AccessChange {
+  """Who made the change, if still known."""
+  actorName: String
+  createdAt: DateTime!
+  id: ID!
+  kind: String!
+  roleId: ID
+  summary: String!
+  userId: ID
+}
+
+type AccessChangesPage {
+  data: [AccessChange!]!
+  meta: PageMeta!
+}
+
+type AreaAction {
+  action: PermissionAction!
+  description: String!
+
+  """Granted along with this action."""
+  requires: [PermissionAction!]!
+}
+
+input ChangePasswordInput {
+  currentPassword: String!
+  newPassword: String!
+}
+
+input CompleteSetupInput {
+  email: String!
+  name: String!
+  password: String!
+
+  """The setup token printed in the API log."""
+  token: String!
+}
+
+type CompleteSetupResult {
+  email: String!
+}
+
+input CreateRoleInput {
+  description: String
+  grants: [GrantInput!]!
+  name: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Grant {
+  action: PermissionAction!
+  area: String!
+}
+
+input GrantInput {
+  action: PermissionAction!
+  area: String!
+}
+
+type Invite {
+  acceptedAt: DateTime
+
+  """The role the invitee joins."""
+  accessRole: RoleSummary!
+  createdAt: DateTime!
+  email: String!
+  expiresAt: DateTime!
+  id: ID!
+  role: UserRole! @deprecated(reason: "Use accessRole; admin/user is derived from the role.")
+}
+
+input InviteUserInput {
+  email: String!
+  role: UserRole @deprecated(reason: "Use accessRole; admin/user is derived from the role.")
+
+  """The role to join; Member when omitted."""
+  roleId: ID
+}
+
+type InviteUserResult {
+  invite: Invite!
+
+  """One-time link to hand to the invitee. The token is not stored."""
+  inviteUrl: String!
+}
+
+type InviteValidation {
+  email: String
+  role: UserRole @deprecated(reason: "Use accessRole; admin/user is derived from the role.")
+
+  """Name of the role the invitee joins."""
+  roleName: String
+  valid: Boolean!
+}
+
+type InvitesPage {
+  data: [Invite!]!
+  meta: PageMeta!
+}
+
+type Mutation {
+  """Burn the invite token for the signed-in user and apply its role."""
+  acceptInvite(token: String!): AcceptInviteResult!
+
+  """Cancel a person's pending reset link. Admin role only."""
+  cancelPasswordResetLink(userId: ID!): Boolean!
+
+  """Change your own password. Signs you out everywhere except here."""
+  changePassword(input: ChangePasswordInput!): Boolean!
+
+  """
+  Public, one time: exchange the setup token for the first admin account.
+  """
+  completeSetup(input: CompleteSetupInput!): CompleteSetupResult!
+
+  """Create a one-time, 24-hour link for another person. Admin role only."""
+  createPasswordResetLink(userId: ID!): PasswordResetLink!
+
+  """Needs roles:add."""
+  createRole(input: CreateRoleInput!): Role!
+
+  """Sign a person out and block sign-in. Needs users:delete."""
+  deactivateUser(id: ID!): User!
+
+  """Deletes an unused custom role. Needs roles:delete."""
+  deleteRole(id: ID!): Boolean!
+
+  """Invite a person by email. Needs invites:add."""
+  inviteUser(input: InviteUserInput!): InviteUserResult!
+
+  """Let a deactivated person sign in again. Admin role only."""
+  reactivateUser(id: ID!): User!
+
+  """Set a new password with a reset link. Public."""
+  resetPassword(input: ResetPasswordInput!): Boolean!
+
+  """Revoke a pending invite. Needs invites:delete."""
+  revokeInvite(id: ID!): Boolean!
+
+  """Put a person in a role. Needs roles:edit."""
+  setUserRole(input: SetUserRoleInput!): User!
+
+  """Needs roles:edit."""
+  updateRole(input: UpdateRoleInput!): Role!
+
+  """Change a person's name or username. Needs users:edit."""
+  updateUser(input: UpdateUserInput!): User!
+}
+
+type MyAccess {
+  """"area:action" strings, e.g. "users:view"."""
+  permissions: [String!]!
+  role: RoleSummary!
+}
+
+type PageMeta {
+  currentPage: Int!
+  hasNextPage: Boolean!
+  hasPrevPage: Boolean!
+  lastPage: Int!
+  next: Int
+  perPage: Int!
+  prev: Int
+  total: Int!
+}
+
+type PasswordPolicy {
+  maxLength: Int!
+  minLength: Int!
+}
+
+type PasswordResetLink {
+  expiresAt: DateTime!
+
+  """Give this to the person; it works once."""
+  url: String!
+}
+
+type PasswordResetTokenStatus {
+  expiresAt: DateTime
+
+  """Whose password the link sets."""
+  name: String
+  valid: Boolean!
+}
+
+enum PermissionAction {
+  ADD
+  DELETE
+  EDIT
+  VIEW
+}
+
+type PermissionArea {
+  """Only the actions this area offers."""
+  actions: [AreaAction!]!
+  key: String!
+  name: String!
+}
+
+type Query {
+  """Access history, newest first. Needs roles:view."""
+  accessChanges(page: Int = 1, perPage: Int = 10): AccessChangesPage!
+
+  """Roles you may move people into, default first. Needs roles:edit."""
+  assignableRoles: [RoleSummary!]!
+
+  """Paginated user list. Needs users:view."""
+  findAllUsers(page: Int = 1, perPage: Int = 10): UsersPage!
+
+  """Roles you may invite people into, default first. Needs invites:add."""
+  inviteRoles: [RoleSummary!]!
+
+  """The signed-in person."""
+  me: User!
+
+  """The signed-in person's role and permissions."""
+  myAccess: MyAccess!
+
+  """The password rules. Public."""
+  passwordPolicy: PasswordPolicy!
+
+  """Pending invites, newest first. Needs invites:view."""
+  pendingInvites(page: Int = 1, perPage: Int = 10): InvitesPage!
+
+  """The roles grid rows. Needs roles:view."""
+  permissionAreas: [PermissionArea!]!
+
+  """One role. Needs roles:view."""
+  role(id: ID!): Role!
+
+  """Every role. Needs roles:view."""
+  roles: [Role!]!
+
+  """Public: whether first-run setup has been completed."""
+  setupStatus: SetupStatus!
+
+  """Public: check an invite token before sign-up."""
+  validateInviteToken(token: String!): InviteValidation!
+
+  """Check a reset link. Public."""
+  validatePasswordResetToken(token: String!): PasswordResetTokenStatus!
+}
+
+input ResetPasswordInput {
+  newPassword: String!
+  token: String!
+}
+
+type Role {
+  """What you may do with this role."""
+  can: RoleCapabilities!
+  description: String
+
+  """Admin: every permission in the catalogue."""
+  grants: [Grant!]!
+  id: ID!
+  kind: RoleKind!
+  memberCount: Int!
+  name: String!
+  pendingInviteCount: Int!
+}
+
+type RoleCapabilities {
+  """People can be put in this role by the caller."""
+  assign: Boolean!
+
+  """Custom, unused, and the caller has roles:delete."""
+  delete: Boolean!
+
+  """Change the description."""
+  edit: Boolean!
+  editGrants: Boolean!
+  rename: Boolean!
+}
+
+enum RoleKind {
+  ADMIN
+  CUSTOM
+  MEMBER
+}
+
+type RoleSummary {
+  id: ID!
+  kind: RoleKind!
+  name: String!
+}
+
+input SetUserRoleInput {
+  roleId: ID!
+  userId: ID!
+}
+
+type SetupStatus {
+  minPasswordLength: Int!
+  setupComplete: Boolean!
+}
+
+input UpdateRoleInput {
+  description: String
+  grants: [GrantInput!]
+  id: ID!
+  name: String
+}
+
+input UpdateUserInput {
+  id: ID!
+  name: String
+  username: String
+}
+
+type User {
+  """The person's role."""
+  accessRole: RoleSummary!
+
+  """What you may do to this person."""
+  can: UserCapabilities!
+  createdAt: DateTime!
+
+  """Deactivated people cannot sign in."""
+  deactivated: Boolean!
+  email: String!
+  id: ID!
+  image: String
+  name: String!
+
+  """
+  When this person's pending password reset link expires. Admin callers only.
+  """
+  passwordResetExpiresAt: DateTime
+  role: UserRole @deprecated(reason: "Use accessRole; admin/user is derived from the role.")
+  username: String
+}
+
+type UserCapabilities {
+  """Change this password from Settings → Account (your own record)."""
+  changePassword: Boolean!
+  changeRole: Boolean!
+  deactivate: Boolean!
+  edit: Boolean!
+  reactivate: Boolean!
+
+  """Create a one-time password reset link for this person."""
+  resetPassword: Boolean!
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+type UsersPage {
+  data: [User!]!
+  meta: PageMeta!
+}

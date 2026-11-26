@@ -1,0 +1,9 @@
+/// Singleton (id = 1): first-run setup state. Only the token's SHA-256 hash is stored.
+model SetupState {
+  id             Int      @id @default(1)
+  setupComplete  Boolean  @default(false)
+  setupTokenHash String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("setup_state")
+}

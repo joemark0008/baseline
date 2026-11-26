@@ -1,0 +1,80 @@
+// Better Auth models for the core + admin + username plugins. They mirror
+// `npx @better-auth/cli generate`; regenerate rather than hand-edit them. The only hand-added
+// fields are back-relations to project models, which add no column.
+
+model User {
+  id                        String              @id
+  name                      String
+  email                     String
+  emailVerified             Boolean             @default(false)
+  image                     String?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+  role                      String?
+  banned                    Boolean?            @default(false)
+  banReason                 String?
+  banExpires                DateTime?
+  username                  String?
+  displayUsername           String?
+  sessions                  Session[]
+  accounts                  Account[]
+  invitesSent               Invite[]            @relation("InviteInvitedBy")
+  // Back-relations to project models (no columns; constitution › Authentication › Persistence).
+  access                    UserAccess?
+  accessChanges             AccessChange[]      @relation("AccessChangeActor")
+  passwordResetLinks        PasswordResetLink[] @relation("PasswordResetLinkUser")
+  passwordResetLinksCreated PasswordResetLink[] @relation("PasswordResetLinkCreatedBy")
+
+  @@unique([email])
+  @@unique([username])
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}

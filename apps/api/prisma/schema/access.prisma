@@ -1,0 +1,77 @@
+// Roles and permissions (feature 001-role-permissions).
+
+enum RoleKind {
+  ADMIN
+  MEMBER
+  CUSTOM
+}
+
+/// A named set of permissions. ADMIN holds every permission by rule and stores no grants.
+model Role {
+  id          String       @id @default(cuid())
+  name        String
+  /// lower(name): case-insensitive uniqueness
+  nameKey     String       @unique
+  description String?
+  kind        RoleKind     @default(CUSTOM)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  grants      RoleGrant[]
+  members     UserAccess[]
+  invites     Invite[]
+
+  @@map("role")
+}
+
+/// One ticked box: `action` on `area` (both from the code catalogue in src/access/areas.ts).
+model RoleGrant {
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  area   String
+  action String
+
+  @@id([roleId, area, action])
+  @@map("role_grant")
+}
+
+/// Which role a person has. No row means Member.
+model UserAccess {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  updatedAt DateTime @updatedAt
+
+  @@index([roleId])
+  @@map("user_access")
+}
+
+enum AccessChangeKind {
+  ROLE_CREATED
+  ROLE_UPDATED
+  ROLE_DELETED
+  USER_ROLE_CHANGED
+  USER_DEACTIVATED
+  USER_REACTIVATED
+  PASSWORD_RESET_LINK_CREATED
+  PASSWORD_RESET_LINK_CANCELLED
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGED
+}
+
+/// Audit record of every role and access change, written in the same transaction as the change.
+model AccessChange {
+  id        String           @id @default(cuid())
+  actorId   String?
+  actor     User?            @relation("AccessChangeActor", fields: [actorId], references: [id], onDelete: SetNull)
+  kind      AccessChangeKind
+  /// No FK: the record survives deletion of the role or user.
+  roleId    String?
+  userId    String?
+  before    Json?
+  after     Json?
+  createdAt DateTime         @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@map("access_change")
+}
