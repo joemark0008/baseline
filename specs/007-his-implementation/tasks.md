@@ -223,7 +223,7 @@ product and remove the preview. Tests first in every phase.
 
 - [x] T061 `npm test -w apps/api`, `npm run test:e2e -w apps/api` against `baseline_dev`, `npm run schema:check`, `npm run codegen -w apps/web`, `npm test -w apps/web -- --run`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`.
 - [x] T062 UI checklist (`.claude/skills/ui-design/references/checklist.md`) on every new screen; record non-applicable items.
-- [ ] T063 Rebuild both images, redeploy `baseline`, confirm migration applied and `/projects` live; `baseline-dev` restarts on its own.
+- [x] T063 Rebuild both images, redeploy `baseline`, confirm migration applied and `/projects` live; `baseline-dev` restarts on its own.
 
 ## Dependencies
 
