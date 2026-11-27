@@ -173,7 +173,7 @@ and not restated.
 - [x] T049 [P] Timing check (SC-001, SC-003): seed a 300-task project with 200 complete through a throwaway script in the session scratchpad (not in the repo) against `baseline_dev`, open Board and List on `baseline-dev`, confirm open < 2 s and search update < 300 ms after the last key; memoise `visibleTasks` in `apps/web/src/feature/projects/lib.ts` callers and the container maps in `apps/web/src/feature/projects/components/Board.tsx` and `TaskList.tsx` on `[tasks, search, showDone]` if needed; remove the seed.
 - [x] T050 [P] Update `README.md` (workspace paragraph: hide done, search and `/`, Mine, folding, lanes) and `specs/011-large-project-readability/quickstart.md` for any step that changed; no other planning docs.
 - [x] T051 Run the full gate in the dev containers: `npm test -w apps/api`, `npm run test:e2e -w apps/api`, `npm run schema:generate` (no diff), `npm run codegen -w apps/web && npm test -w apps/web -- --run`, `npx tsc --noEmit` in `apps/web`, `npm run lint`, `npm run format:check`, `npm run build`; walk `quickstart.md` 1–10.
-- [ ] T052 Commit on the host as `feat(011): keep large projects readable` including the migration, `apps/api/schema.graphql`, the phase-number URL change and `specs/011-large-project-readability/`; rebuild both images and redeploy `baseline` per `plan.md › Deployment Notes`; confirm the migration applied and the site answers 200.
+- [x] T052 Commit on the host as `feat(011): keep large projects readable` including the migration, `apps/api/schema.graphql`, the phase-number URL change and `specs/011-large-project-readability/`; rebuild both images and redeploy `baseline` per `plan.md › Deployment Notes`; confirm the migration applied and the site answers 200.
 
 ---
 
