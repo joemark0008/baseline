@@ -218,6 +218,24 @@ type InvitesPage {
   meta: PageMeta!
 }
 
+input MoveDeliverableInput {
+  afterId: ID
+  beforeId: ID
+  id: ID!
+  phaseId: ID
+}
+
+input MoveTaskInput {
+  """The task that should come just before it."""
+  afterTaskId: ID
+
+  """The task that should come just after it."""
+  beforeTaskId: ID
+  id: ID!
+  phaseId: ID
+  status: TaskStatus
+}
+
 type Mutation {
   """Burn the invite token for the signed-in user and apply its role."""
   acceptInvite(token: String!): AcceptInviteResult!
@@ -284,6 +302,14 @@ type Mutation {
 
   """Invite a person by email. Needs invites:add."""
   inviteUser(input: InviteUserInput!): InviteUserResult!
+
+  """Drag-and-drop move within or across phases. Members only."""
+  moveProjectDeliverable(input: MoveDeliverableInput!): ProjectDeliverable!
+
+  """
+  Drag-and-drop move: status, phase and/or position between neighbours. Members only.
+  """
+  moveProjectTask(input: MoveTaskInput!): ProjectTask!
 
   """Let a deactivated person sign in again. Admin role only."""
   reactivateUser(id: ID!): User!
@@ -522,6 +548,9 @@ type ProjectInvite {
 type ProjectListItem {
   hospitalName: String!
   id: ID!
+
+  """The caller's own tasks that are not complete."""
+  myOpenTasks: Int!
   myRole: ProjectRole!
   name: String!
   startDate: String
@@ -602,7 +631,15 @@ type ProjectTask {
   overdue: Boolean!
   owner: PersonSummary
   phaseId: ID!
+
+  """Manual order within the project; lower comes first (feature 010)."""
+  position: Float!
   predecessor: TaskRef
+
+  """
+  Starts before its predecessor is due; a warning, not a refusal (feature 010, FR-019).
+  """
+  predecessorConflict: Boolean!
   priority: TaskPriority!
   projectId: ID!
 
@@ -616,6 +653,11 @@ type ProjectTask {
 type ProjectsPage {
   data: [ProjectListItem!]!
   meta: PageMeta!
+}
+
+enum ProjectsSort {
+  GO_LIVE
+  RECENT
 }
 
 type Query {
@@ -653,7 +695,14 @@ type Query {
   project(id: ID!): Project!
 
   """Who changed what, newest first. Members only."""
-  projectActivity(page: Int = 1, perPage: Int = 10, projectId: ID!): ProjectActivityPage!
+  projectActivity(
+    page: Int = 1
+    perPage: Int = 10
+    projectId: ID!
+
+    """Only entries about this task/phase/etc."""
+    targetId: ID
+  ): ProjectActivityPage!
 
   """Active accounts not yet in the project. Managers only."""
   projectMemberCandidates(projectId: ID!, search: String): [PersonSummary!]!
@@ -662,12 +711,27 @@ type Query {
   projectTask(id: ID!): ProjectTask!
 
   """Tasks of a project, filtered. Members only."""
-  projectTasks(overdue: Boolean, ownerId: ID, phaseId: ID, projectId: ID!, status: TaskStatus): [ProjectTask!]!
+  projectTasks(
+    overdue: Boolean
+    ownerId: ID
+    phaseId: ID
+    projectId: ID!
+
+    """Default POSITION (manual order)."""
+    sort: TaskSort
+    status: TaskStatus
+  ): [ProjectTask!]!
 
   """
   Projects you belong to, most recently updated first. Needs projects:view.
   """
-  projects(page: Int = 1, perPage: Int = 10): ProjectsPage!
+  projects(
+    page: Int = 1
+    perPage: Int = 10
+
+    """Default RECENT."""
+    sort: ProjectsSort
+  ): ProjectsPage!
 
   """One role. Needs roles:view."""
   role(id: ID!): Role!
@@ -767,6 +831,11 @@ enum TaskPriority {
 type TaskRef {
   id: ID!
   title: String!
+}
+
+enum TaskSort {
+  DUE_DATE
+  POSITION
 }
 
 enum TaskStatus {

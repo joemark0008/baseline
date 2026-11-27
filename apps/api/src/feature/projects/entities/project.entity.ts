@@ -1,4 +1,4 @@
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql'
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql'
 import { Paginated } from '../../../common/pagination/paginated.output.js'
 import {
   DeliverableKind,
@@ -76,6 +76,15 @@ export class ProjectTask {
   @Field(() => String, { nullable: true, description: 'YYYY-MM-DD' }) dueDate: string | null
   @Field({ description: 'Due before today and not complete (FR-008).' }) overdue: boolean
   @Field(() => TaskRef, { nullable: true }) predecessor: TaskRef | null
+  @Field(() => Float, {
+    description: 'Manual order within the project; lower comes first (feature 010).',
+  })
+  position: number
+  @Field({
+    description:
+      'Starts before its predecessor is due; a warning, not a refusal (feature 010, FR-019).',
+  })
+  predecessorConflict: boolean
   @Field() createdAt: Date
   @Field() updatedAt: Date
   @Field(() => [TaskComment]) comments: TaskComment[]
@@ -168,6 +177,8 @@ export class ProjectListItem {
   @Field(() => String, { nullable: true }) targetGoLiveDate: string | null
   @Field(() => ProjectRole) myRole: ProjectRole
   @Field(() => ProjectSummary) summary: ProjectSummary
+  @Field(() => Int, { description: "The caller's own tasks that are not complete." })
+  myOpenTasks: number
   @Field() updatedAt: Date
 }
 

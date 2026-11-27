@@ -1,8 +1,8 @@
 import { graphql } from '@/graphql/codegen'
 
 export const PROJECT_LIST = graphql(`
-  query ProjectList($page: Int, $perPage: Int) {
-    projects(page: $page, perPage: $perPage) {
+  query ProjectList($page: Int, $perPage: Int, $sort: ProjectsSort) {
+    projects(page: $page, perPage: $perPage, sort: $sort) {
       data {
         id
         name
@@ -11,6 +11,7 @@ export const PROJECT_LIST = graphql(`
         startDate
         targetGoLiveDate
         myRole
+        myOpenTasks
         updatedAt
         summary {
           totalTasks
@@ -93,6 +94,8 @@ export const PROJECT = graphql(`
             id
             title
           }
+          position
+          predecessorConflict
           createdAt
           updatedAt
         }
@@ -183,6 +186,8 @@ export const PROJECT_TASK = graphql(`
         id
         title
       }
+      position
+      predecessorConflict
       createdAt
       updatedAt
       comments {
@@ -207,8 +212,8 @@ export const PROJECT_TASK = graphql(`
 `)
 
 export const PROJECT_ACTIVITY = graphql(`
-  query ProjectActivity($projectId: ID!, $page: Int, $perPage: Int) {
-    projectActivity(projectId: $projectId, page: $page, perPage: $perPage) {
+  query ProjectActivity($projectId: ID!, $page: Int, $perPage: Int, $targetId: ID) {
+    projectActivity(projectId: $projectId, page: $page, perPage: $perPage, targetId: $targetId) {
       data {
         id
         kind
@@ -371,6 +376,17 @@ export const DELETE_PROJECT_TASK = graphql(`
   }
 `)
 
+export const MOVE_PROJECT_TASK = graphql(`
+  mutation MoveProjectTask($input: MoveTaskInput!) {
+    moveProjectTask(input: $input) {
+      id
+      phaseId
+      status
+      position
+    }
+  }
+`)
+
 export const ADD_TASK_COMMENT = graphql(`
   mutation AddTaskComment($input: AddTaskCommentInput!) {
     addTaskComment(input: $input) {
@@ -464,6 +480,16 @@ export const REVIEW_PROJECT_DELIVERABLE = graphql(`
       reviewOutcome
       reviewNote
       reviewedAt
+    }
+  }
+`)
+
+export const MOVE_PROJECT_DELIVERABLE = graphql(`
+  mutation MoveProjectDeliverable($input: MoveDeliverableInput!) {
+    moveProjectDeliverable(input: $input) {
+      id
+      phaseId
+      order
     }
   }
 `)

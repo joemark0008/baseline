@@ -1,4 +1,5 @@
 import { ArgsType, Field, ID, InputType } from '@nestjs/graphql'
+import { PageArgs } from '../../../common/pagination/page-args.js'
 import {
   IsBoolean,
   IsEmail,
@@ -9,7 +10,13 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator'
-import { ProjectRole, ProjectStatus, TaskStatus } from '../entities/enums.js'
+import {
+  ProjectRole,
+  ProjectStatus,
+  ProjectsSort,
+  TaskSort,
+  TaskStatus,
+} from '../entities/enums.js'
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -63,4 +70,27 @@ export class TaskFilterArgs {
   @IsEnum(TaskStatus)
   status?: TaskStatus | null
   @Field(() => Boolean, { nullable: true }) @IsOptional() @IsBoolean() overdue?: boolean | null
+  @Field(() => TaskSort, { nullable: true, description: 'Default POSITION (manual order).' })
+  @IsOptional()
+  @IsEnum(TaskSort)
+  sort?: TaskSort | null
+}
+
+/** `projects(...)`: paging plus a sort order (feature 010). */
+@ArgsType()
+export class ProjectsListArgs extends PageArgs {
+  @Field(() => ProjectsSort, { nullable: true, description: 'Default RECENT.' })
+  @IsOptional()
+  @IsEnum(ProjectsSort)
+  sort?: ProjectsSort | null
+}
+
+/** `projectActivity(...)`: paging plus an optional target filter (feature 010). */
+@ArgsType()
+export class ProjectActivityArgs extends PageArgs {
+  @Field(() => ID) @IsString() projectId: string
+  @Field(() => ID, { nullable: true, description: 'Only entries about this task/phase/etc.' })
+  @IsOptional()
+  @IsString()
+  targetId?: string | null
 }

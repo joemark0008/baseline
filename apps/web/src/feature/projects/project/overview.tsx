@@ -1,20 +1,18 @@
 import { useMutation } from '@apollo/client/react'
-import { ArrowDown, ArrowUp, MoreHorizontal } from 'lucide-react'
-import { useState } from 'react'
+import { closestCenter, DndContext, type DragEndEvent } from '@dnd-kit/core'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { PhaseDialog } from '../components/PhaseDialog'
+import { PhaseRow } from '../components/PhaseRow'
 import { OverdueBadge, StatusBadge } from '../components/StatusBadge'
+import { makeAnnouncements, screenReaderInstructions } from '../dnd/announcements'
+import { useWorkSensors } from '../dnd/sensors'
 import { allTasks, formatDate, message, type PhaseData } from '../lib'
 import { PROJECT, REMOVE_PROJECT_PHASE, REORDER_PROJECT_PHASES } from '../operations'
 import { useProject } from './context'
@@ -34,16 +32,44 @@ export function ProjectOverviewTab() {
     .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
     .slice(0, 5)
 
-  async function move(index: number, delta: -1 | 1) {
-    const ids = phases.map((p) => p.id)
-    const target = index + delta
-    if (target < 0 || target >= ids.length) return
-    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+  const sensors = useWorkSensors()
+  const ids = useMemo(() => phases.map((p) => p.id), [phases])
+  const announcements = useMemo(
+    () =>
+      makeAnnouncements(
+        (id) => {
+          const i = ids.indexOf(String(id))
+          return i === -1
+            ? null
+            : { title: phases[i].name, container: 'the plan', index: i + 1, count: ids.length }
+        },
+        (id) => {
+          const i = ids.indexOf(String(id))
+          return i === -1 ? null : { container: 'the plan', index: i + 1, count: ids.length }
+        },
+        'phase',
+      ),
+    [ids, phases],
+  )
+
+  async function save(order: string[]) {
     try {
-      await reorder({ variables: { projectId: project.id, phaseIds: ids } })
+      await reorder({ variables: { projectId: project.id, phaseIds: order } })
     } catch (e) {
       toast.error(message(e))
     }
+  }
+
+  function moveStep(phase: PhaseData, delta: -1 | 1) {
+    const index = ids.indexOf(phase.id)
+    const target = index + delta
+    if (target < 0 || target >= ids.length) return
+    void save(arrayMove(ids, index, target))
+  }
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return
+    void save(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))))
   }
 
   async function remove(): Promise<string | null> {
@@ -76,80 +102,30 @@ export function ProjectOverviewTab() {
           ) : null}
         </CardHeader>
         <CardContent>
-          <ol aria-label="Implementation phases" className="divide-y">
-            {phases.map((phase, index) => {
-              const open = phase.tasks.filter((t) => t.status !== 'COMPLETE').length
-              const overdue = phase.tasks.filter((t) => t.overdue).length
-              return (
-                <li
-                  key={phase.id}
-                  className="flex flex-wrap items-center gap-3 py-3 sm:flex-nowrap"
-                >
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{phase.name}</p>
-                      <StatusBadge value={phase.status} />
-                      {overdue ? <OverdueBadge /> : null}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(phase.startDate, false)} – {formatDate(phase.endDate, false)} ·{' '}
-                      {phase.owner ? phase.owner.name : 'No owner'} · {open} open task
-                      {open === 1 ? '' : 's'} · {phase.deliverables.length} deliverable
-                      {phase.deliverables.length === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                  {project.can.manage ? (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Move ${phase.name} up`}
-                        disabled={index === 0}
-                        onClick={() => move(index, -1)}
-                      >
-                        <ArrowUp aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Move ${phase.name} down`}
-                        disabled={index === phases.length - 1}
-                        onClick={() => move(index, 1)}
-                      >
-                        <ArrowDown aria-hidden="true" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Actions for ${phase.name}`}
-                          >
-                            <MoreHorizontal aria-hidden="true" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setEditing(phase)}>
-                            Edit phase
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onSelect={() => setRemoving(phase)}
-                          >
-                            Remove phase
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ol>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            accessibility={{ announcements, screenReaderInstructions }}
+            onDragEnd={onDragEnd}
+          >
+            <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+              <ol aria-label="Implementation phases" className="divide-y">
+                {phases.map((phase, index) => (
+                  <PhaseRow
+                    key={phase.id}
+                    phase={phase}
+                    index={index}
+                    count={phases.length}
+                    canManage={project.can.manage}
+                    onEdit={setEditing}
+                    onRemove={setRemoving}
+                    onMoveStep={moveStep}
+                  />
+                ))}
+              </ol>
+            </SortableContext>
+          </DndContext>
         </CardContent>
       </Card>
       <Card>
@@ -163,7 +139,7 @@ export function ProjectOverviewTab() {
         <CardContent>
           {upcoming.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No dated open tasks. Add tasks on the Tasks page.
+              No dated open tasks. Add tasks on the List or Board.
             </p>
           ) : (
             <ul className="divide-y">

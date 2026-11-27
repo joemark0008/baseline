@@ -3,7 +3,12 @@ import { Session } from '@thallesp/nestjs-better-auth'
 import { RequirePermission } from '../access/require-permission.decorator.js'
 import type { AuthSession } from '../../auth/auth.config.js'
 import { TaskFilterArgs } from './dto/project.input.js'
-import { AddTaskCommentInput, CreateTaskInput, UpdateTaskInput } from './dto/task.input.js'
+import {
+  AddTaskCommentInput,
+  CreateTaskInput,
+  MoveTaskInput,
+  UpdateTaskInput,
+} from './dto/task.input.js'
 import { ProjectTask, TaskComment } from './entities/project.entity.js'
 import { TasksService } from './tasks.service.js'
 
@@ -45,6 +50,18 @@ export class TasksResolver {
     @Session() session: AuthSession,
   ): Promise<ProjectTask> {
     return this.tasks.update(input, session.user.id)
+  }
+
+  @Mutation(() => ProjectTask, {
+    description:
+      'Drag-and-drop move: status, phase and/or position between neighbours. Members only.',
+  })
+  @RequirePermission('projects', 'view')
+  moveProjectTask(
+    @Args('input') input: MoveTaskInput,
+    @Session() session: AuthSession,
+  ): Promise<ProjectTask> {
+    return this.tasks.move(input, session.user.id)
   }
 
   @Mutation(() => Boolean, { description: 'Members only.' })

@@ -1,12 +1,12 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { APP_ENV, type AppEnv } from '../../config/env.js'
 import { EmailService } from '../../email/email.service.js'
-import { PrismaService } from '../../prisma/prisma.service.js'
+import { PrismaService, type PrismaTx } from '../../prisma/prisma.service.js'
 import { recordActivity } from './activity.js'
 import { assertDateOrder, fromIsoDate, toIsoDate, todayIso } from './dates.js'
-import type { TaskPriority, TaskStatus } from './entities/enums.js'
+import type { TaskPriority, TaskSort, TaskStatus } from './entities/enums.js'
 import { ProjectTask, TaskComment } from './entities/project.entity.js'
-import { PERSON, toComment, toTask, type TaskRow } from './mappers.js'
+import { PERSON, PREDECESSOR, toComment, toTask, type TaskRow } from './mappers.js'
 import { ProjectAccessService } from './project-access.service.js'
 
 export const TASK_DATE_RULE = 'Due date must not be before start date'
@@ -16,10 +16,14 @@ export const PREDECESSOR_PROJECT = 'The predecessor must belong to the same proj
 export const PHASE_PROJECT = 'The phase must belong to the same project'
 export const OWNER_MEMBER = 'The owner must be a member of the project'
 export const MENTION_MEMBER = 'You can only mention members of the project'
+export const TASK_PROJECT = 'Task not found in this project'
+export const PHASE_NOT_IN_PROJECT = 'Phase not found in this project'
+/** Below this gap between neighbours the project is renumbered 1..n before placing. */
+export const MIN_GAP = 1e-6
 
 const TASK_INCLUDE = {
   owner: PERSON,
-  predecessor: { select: { id: true, title: true } },
+  predecessor: PREDECESSOR,
   comments: {
     orderBy: { createdAt: 'asc' as const },
     include: { author: PERSON, mentions: { include: { user: PERSON } } },
@@ -43,6 +47,7 @@ export class TasksService {
       ownerId?: string | null
       status?: TaskStatus | null
       overdue?: boolean | null
+      sort?: TaskSort | null
     },
     userId: string,
   ): Promise<ProjectTask[]> {
@@ -54,7 +59,10 @@ export class TasksService {
         ...(filter.ownerId ? { ownerId: filter.ownerId } : {}),
         ...(filter.status ? { status: filter.status } : {}),
       },
-      orderBy: [{ dueDate: 'asc' }, { title: 'asc' }],
+      orderBy:
+        filter.sort === 'DUE_DATE'
+          ? [{ dueDate: 'asc' }, { title: 'asc' }]
+          : [{ position: 'asc' }, { createdAt: 'asc' }],
       include: TASK_INCLUDE,
     })
     const today = todayIso()
@@ -90,6 +98,10 @@ export class TasksService {
     if (input.predecessorId)
       await this.assertPredecessor(input.projectId, input.predecessorId, null)
     const row = await this.prisma.client.$transaction(async (tx) => {
+      const last = await tx.projectTask.findFirst({
+        where: { projectId: input.projectId },
+        orderBy: { position: 'desc' },
+      })
       const created = await tx.projectTask.create({
         data: {
           projectId: input.projectId,
@@ -102,6 +114,7 @@ export class TasksService {
           startDate: fromIsoDate(input.startDate),
           dueDate: fromIsoDate(input.dueDate),
           predecessorId: input.predecessorId || null,
+          position: (last?.position ?? 0) + 1,
           createdById: actorId,
         },
         include: TASK_INCLUDE,
@@ -185,6 +198,136 @@ export class TasksService {
     if (ownerChanged && task.owner && task.owner.id !== actorId)
       await this.notifyAssigned(task, actorId)
     return task
+  }
+
+  /**
+   * Feature 010 FR-005/FR-006/FR-013: a drag-and-drop move. Places the task between the named
+   * neighbours (midpoint; renumbers the project when the gap vanishes), and/or changes status or
+   * phase. Nothing is written, and no activity recorded, when nothing would change.
+   */
+  async move(
+    input: {
+      id: string
+      status?: TaskStatus | null
+      phaseId?: string | null
+      afterTaskId?: string | null
+      beforeTaskId?: string | null
+    },
+    actorId: string,
+  ): Promise<ProjectTask> {
+    const current = await this.find(input.id)
+    await this.access.assertMember(current.projectId, actorId)
+    const phase = input.phaseId ? await this.phaseIn(input.phaseId, current.projectId) : null
+    const row = await this.prisma.client.$transaction(async (tx) => {
+      const position = await this.placeBetween(tx, current, input.afterTaskId, input.beforeTaskId)
+      const status = input.status ?? current.status
+      const phaseId = phase?.id ?? current.phaseId
+      const changes: string[] = []
+      if (status !== current.status)
+        changes.push(`moved task ${current.title} to ${status.toLowerCase().replace('_', ' ')}`)
+      if (phaseId !== current.phaseId)
+        changes.push(`moved task ${current.title} to phase ${phase?.name}`)
+      if (position !== current.position) changes.push(`reordered task ${current.title}`)
+      if (changes.length === 0) return null
+      const updated = await tx.projectTask.update({
+        where: { id: current.id },
+        data: { status, phaseId, position },
+        include: TASK_INCLUDE,
+      })
+      await recordActivity(tx, {
+        projectId: current.projectId,
+        actorId,
+        kind: 'TASK_UPDATED',
+        targetType: 'task',
+        targetId: current.id,
+        summary: changes.join(', '),
+        details: { move: true },
+      })
+      return updated
+    })
+    return toTask((row ?? current) as unknown as TaskRow)
+  }
+
+  /** The slot between `after` and `before`; keeps the current position when already inside it. */
+  private async placeBetween(
+    tx: PrismaTx,
+    current: { id: string; projectId: string; position: number },
+    afterTaskId: string | null | undefined,
+    beforeTaskId: string | null | undefined,
+  ): Promise<number> {
+    if (!afterTaskId && !beforeTaskId) return current.position
+    let bounds = await this.slotBounds(tx, current, afterTaskId, beforeTaskId)
+    if (bounds.lo < current.position && current.position < bounds.hi) return current.position
+    if (
+      Number.isFinite(bounds.lo) &&
+      Number.isFinite(bounds.hi) &&
+      bounds.hi - bounds.lo < MIN_GAP
+    ) {
+      await this.renumber(tx, current.projectId)
+      bounds = await this.slotBounds(tx, current, afterTaskId, beforeTaskId)
+    }
+    if (!Number.isFinite(bounds.lo) && !Number.isFinite(bounds.hi)) return current.position
+    if (!Number.isFinite(bounds.hi)) return bounds.lo + 1
+    if (!Number.isFinite(bounds.lo)) return bounds.hi - 1
+    return (bounds.lo + bounds.hi) / 2
+  }
+
+  /** Positions of the neighbours around the target slot, ignoring the moving task itself. */
+  private async slotBounds(
+    tx: PrismaTx,
+    current: { id: string; projectId: string },
+    afterTaskId: string | null | undefined,
+    beforeTaskId: string | null | undefined,
+  ): Promise<{ lo: number; hi: number }> {
+    const after = afterTaskId ? await this.neighbour(tx, afterTaskId, current.projectId) : null
+    const before = beforeTaskId ? await this.neighbour(tx, beforeTaskId, current.projectId) : null
+    const others = { projectId: current.projectId, id: { not: current.id } }
+    const lo =
+      after?.position ??
+      (before
+        ? (
+            await tx.projectTask.findFirst({
+              where: { ...others, position: { lt: before.position } },
+              orderBy: { position: 'desc' },
+            })
+          )?.position
+        : undefined) ??
+      -Infinity
+    const hi =
+      before?.position ??
+      (after
+        ? (
+            await tx.projectTask.findFirst({
+              where: { ...others, position: { gt: after.position } },
+              orderBy: { position: 'asc' },
+            })
+          )?.position
+        : undefined) ??
+      Infinity
+    return { lo, hi }
+  }
+
+  private async neighbour(tx: PrismaTx, id: string, projectId: string) {
+    const row = await tx.projectTask.findUnique({ where: { id } })
+    if (!row || row.projectId !== projectId) throw new BadRequestException(TASK_PROJECT)
+    return row
+  }
+
+  /** Positions 1..n in the current order; only when midpoints have run out of precision. */
+  private async renumber(tx: PrismaTx, projectId: string): Promise<void> {
+    const rows = await tx.projectTask.findMany({
+      where: { projectId },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    })
+    for (const [i, row] of rows.entries()) {
+      await tx.projectTask.update({ where: { id: row.id }, data: { position: i + 1 } })
+    }
+  }
+
+  private async phaseIn(phaseId: string, projectId: string) {
+    const phase = await this.prisma.client.projectPhase.findUnique({ where: { id: phaseId } })
+    if (!phase || phase.projectId !== projectId) throw new BadRequestException(PHASE_NOT_IN_PROJECT)
+    return phase
   }
 
   async delete(id: string, actorId: string): Promise<boolean> {
@@ -274,7 +417,7 @@ export class TasksService {
   }
 
   private taskUrl(projectId: string, taskId: string): string {
-    const url = new URL(`/projects/${projectId}/tasks`, this.env.webOrigins[0])
+    const url = new URL(`/projects/${projectId}/list`, this.env.webOrigins[0])
     url.searchParams.set('task', taskId)
     return url.toString()
   }

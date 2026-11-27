@@ -2,10 +2,11 @@ import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { Session } from '@thallesp/nestjs-better-auth'
 import { RequirePermission } from '../access/require-permission.decorator.js'
 import type { AuthSession } from '../../auth/auth.config.js'
-import { PageArgs } from '../../common/pagination/page-args.js'
 import {
   CreateProjectInput,
   InviteProjectMemberInput,
+  ProjectActivityArgs,
+  ProjectsListArgs,
   UpdateProjectInput,
 } from './dto/project.input.js'
 import { AddStakeholderInput, UpdateStakeholderInput } from './dto/stakeholder.input.js'
@@ -44,8 +45,8 @@ export class ProjectsResolver {
     description: 'Projects you belong to, most recently updated first. Needs projects:view.',
   })
   @RequirePermission('projects', 'view')
-  projects(@Args() pageArgs: PageArgs, @Session() session: AuthSession): Promise<ProjectsPage> {
-    return this.service.listMine(session.user.id, pageArgs)
+  projects(@Args() args: ProjectsListArgs, @Session() session: AuthSession): Promise<ProjectsPage> {
+    return this.service.listMine(session.user.id, args, args.sort)
   }
 
   @Query(() => Project, { description: 'One project you belong to. Not found otherwise.' })
@@ -62,11 +63,10 @@ export class ProjectsResolver {
   })
   @RequirePermission('projects', 'view')
   projectActivity(
-    @Args('projectId', { type: () => ID }) projectId: string,
-    @Args() pageArgs: PageArgs,
+    @Args() args: ProjectActivityArgs,
     @Session() session: AuthSession,
   ): Promise<ProjectActivityPage> {
-    return this.service.activity(projectId, session.user.id, pageArgs)
+    return this.service.activity(args.projectId, session.user.id, args, args.targetId)
   }
 
   @Query(() => [PersonSummary], {

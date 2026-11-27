@@ -304,6 +304,22 @@ deactivate them), `/settings/roles` (design roles) and `/settings/roles/history`
 what), `/invite` (the link an invitee opens to sign up), `/auth/callback` (where every sign-in
 lands). Sign-up without an invite is rejected by the API.
 
+**Project workspace:** `/projects` lists your implementation projects as cards; a project opens
+on the work view you used last (`/projects/:id/work`). The three work views share one set of
+filters in the URL: **Board** (`/board`, cards by status), **List** (`/list`, rows grouped by
+phase with quick-add and inline editing) and **Timeline** (`/timeline`, phase and task bars).
+Everything moves by drag and drop, with a keyboard and menu equivalent for each drag:
+
+| Where                                   | Pointer                                 | Keyboard / menu                                                                                               |
+| --------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Board card, List row                    | drag the card or its grip               | focus the grip, Space picks up, arrows move, Space drops; or the row menu                                     |
+| Timeline bar                            | drag the bar to shift, an end to resize | focus the bar: ← → one day, Shift ×7, Alt moves the due end, Alt+Shift the start; Enter saves, Escape cancels |
+| Overview phases, Readiness deliverables | drag the grip                           | row menu: Move up / Move down / Move to phase                                                                 |
+| Any work view                           |                                         | `n` focuses quick-add (List) or opens New task (Board)                                                        |
+
+Tasks keep one manual order per project (`position`); every drop is saved in the background and
+rolled back with a message if the server refuses it.
+
 ## Roles and permissions
 
 Each person has one role. A role is a grid: one row per feature, with View, Add, Edit and

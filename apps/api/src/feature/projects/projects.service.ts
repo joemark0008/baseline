@@ -12,7 +12,12 @@ import { InvitesService } from '../invites/invites.service.js'
 import { recordActivity } from './activity.js'
 import { assertDateOrder, fromIsoDate, toIsoDate } from './dates.js'
 import { ProjectActivity, ProjectActivityPage } from './entities/activity.entity.js'
-import type { ProjectActivityKind, ProjectRole, ProjectStatus } from './entities/enums.js'
+import type {
+  ProjectActivityKind,
+  ProjectRole,
+  ProjectsSort,
+  ProjectStatus,
+} from './entities/enums.js'
 import { PersonSummary } from './entities/person-summary.entity.js'
 import {
   Project,
@@ -110,20 +115,30 @@ export class ProjectsService implements OnModuleInit {
     return this.get(id, actorId)
   }
 
-  /** Projects the caller belongs to, most recently updated first. */
-  async listMine(userId: string, pageArgs: PageArgs = {}): Promise<ProjectsPage> {
+  /** Projects the caller belongs to: most recently updated first, or by go-live date (feature 010). */
+  async listMine(
+    userId: string,
+    pageArgs: PageArgs = {},
+    sort: ProjectsSort | null = null,
+  ): Promise<ProjectsPage> {
     const { page, perPage, skip, take } = toPageQuery(pageArgs)
     const where = { members: { some: { userId } } }
     const [rows, total] = await Promise.all([
       this.prisma.client.project.findMany({
         where,
-        orderBy: { updatedAt: 'desc' },
+        orderBy:
+          sort === 'GO_LIVE'
+            ? [{ targetGoLiveDate: { sort: 'asc', nulls: 'last' } }, { updatedAt: 'desc' }]
+            : { updatedAt: 'desc' },
         skip,
         take,
         include: {
           members: { where: { userId }, select: { role: true } },
           phases: { select: { status: true } },
           tasks: { select: { status: true, dueDate: true } },
+          _count: {
+            select: { tasks: { where: { ownerId: userId, status: { not: 'COMPLETE' } } } },
+          },
         },
       }),
       this.prisma.client.project.count({ where }),
@@ -475,18 +490,20 @@ export class ProjectsService implements OnModuleInit {
     projectId: string,
     userId: string,
     pageArgs: PageArgs = {},
+    targetId: string | null = null,
   ): Promise<ProjectActivityPage> {
     await this.access.assertMember(projectId, userId)
     const { page, perPage, skip, take } = toPageQuery(pageArgs)
+    const where = { projectId, ...(targetId ? { targetId } : {}) }
     const [rows, total] = await Promise.all([
       this.prisma.client.projectActivity.findMany({
-        where: { projectId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take,
         include: { actor: PERSON },
       }),
-      this.prisma.client.projectActivity.count({ where: { projectId } }),
+      this.prisma.client.projectActivity.count({ where }),
     ])
     const data: ProjectActivity[] = rows.map((r) => ({
       id: r.id,

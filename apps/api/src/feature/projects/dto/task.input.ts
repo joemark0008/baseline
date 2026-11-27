@@ -58,6 +58,25 @@ export class UpdateTaskInput {
   @Field(() => ID, { nullable: true }) @IsOptional() @IsString() predecessorId?: string | null
 }
 
+/** A drag-and-drop move: new status and/or phase plus the intended neighbours (feature 010). */
+@InputType()
+export class MoveTaskInput {
+  @Field(() => ID) @IsString() id: string
+  @Field(() => TaskStatus, { nullable: true })
+  @IsOptional()
+  @IsEnum(TaskStatus)
+  status?: TaskStatus | null
+  @Field(() => ID, { nullable: true }) @IsOptional() @IsString() phaseId?: string | null
+  @Field(() => ID, { nullable: true, description: 'The task that should come just before it.' })
+  @IsOptional()
+  @IsString()
+  afterTaskId?: string | null
+  @Field(() => ID, { nullable: true, description: 'The task that should come just after it.' })
+  @IsOptional()
+  @IsString()
+  beforeTaskId?: string | null
+}
+
 @InputType()
 export class AddTaskCommentInput {
   @Field(() => ID) @IsString() taskId: string

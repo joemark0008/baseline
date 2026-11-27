@@ -43,6 +43,16 @@ export enum ReviewOutcome {
   APPROVED = 'APPROVED',
   CHANGES_REQUESTED = 'CHANGES_REQUESTED',
 }
+/** Sort orders for the projects list (feature 010). */
+export enum ProjectsSort {
+  RECENT = 'RECENT',
+  GO_LIVE = 'GO_LIVE',
+}
+/** Sort orders for a task list: manual position (default) or the old due-date order. */
+export enum TaskSort {
+  POSITION = 'POSITION',
+  DUE_DATE = 'DUE_DATE',
+}
 export enum ProjectActivityKind {
   PROJECT_CREATED = 'PROJECT_CREATED',
   PROJECT_UPDATED = 'PROJECT_UPDATED',
@@ -76,3 +86,5 @@ registerEnumType(DeliverableKind, { name: 'DeliverableKind' })
 registerEnumType(DeliverableStatus, { name: 'DeliverableStatus' })
 registerEnumType(ReviewOutcome, { name: 'ReviewOutcome' })
 registerEnumType(ProjectActivityKind, { name: 'ProjectActivityKind' })
+registerEnumType(ProjectsSort, { name: 'ProjectsSort' })
+registerEnumType(TaskSort, { name: 'TaskSort' })

@@ -116,6 +116,26 @@ function fakeDb() {
         Object.assign(p, data)
         return p
       },
+      // Records the arguments so the sort and the filtered count can be asserted (feature 010).
+      findMany: vi.fn(async () =>
+        projects.map((p) => ({
+          ...p,
+          members: members.filter((m) => m.projectId === p.id).map((m) => ({ role: m.role })),
+          phases: [],
+          tasks: [],
+          _count: { tasks: 2 },
+        })),
+      ),
+      count: async () => projects.length,
+    },
+    projectActivity: {
+      create: async ({
+        data,
+      }: {
+        data: { kind: string; summary: string; actorId: string | null }
+      }) => activity.push(data),
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
     },
     projectPhase: {
       create: async ({
@@ -197,13 +217,6 @@ function fakeDb() {
       findUnique: async ({ where }: { where: { id: string } }) => PEOPLE[where.id] ?? null,
       findFirst: async ({ where }: { where: { email: string } }) =>
         Object.values(PEOPLE).find((p) => p.email === where.email && !p.banned) ?? null,
-    },
-    projectActivity: {
-      create: async ({
-        data,
-      }: {
-        data: { kind: string; summary: string; actorId: string | null }
-      }) => activity.push(data),
     },
   }
   return {
@@ -348,5 +361,43 @@ describe('ProjectsService', () => {
     await svc.joinFromInvite(tx, { projectId: id, userId: 'bo', role: 'MEMBER' })
     expect(db.members.filter((m) => m.userId === 'bo')).toHaveLength(1)
     expect(db.activity.filter((a) => a.kind === 'MEMBER_ADDED')).toHaveLength(1)
+  })
+  describe('list sort, my open tasks and activity filter (feature 010)', () => {
+    it('sorts by recent activity by default and by go-live on request, counting my open tasks', async () => {
+      await svc.create({ name: 'Northstar HIS', hospitalName: 'Northstar' }, 'ada')
+      const recent = await svc.listMine('ada')
+      expect(db.client.project.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          orderBy: { updatedAt: 'desc' },
+          include: expect.objectContaining({
+            _count: {
+              select: { tasks: { where: { ownerId: 'ada', status: { not: 'COMPLETE' } } } },
+            },
+          }),
+        }),
+      )
+      expect(recent.data[0].myOpenTasks).toBe(2)
+      await svc.listMine('ada', {}, 'GO_LIVE' as never)
+      expect(db.client.project.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          orderBy: [{ targetGoLiveDate: { sort: 'asc', nulls: 'last' } }, { updatedAt: 'desc' }],
+        }),
+      )
+    })
+
+    it('narrows the activity to one target when asked', async () => {
+      const project = await svc.create({ name: 'Northstar HIS', hospitalName: 'Northstar' }, 'ada')
+      await svc.activity(project.id, 'ada', {}, 't1')
+      expect(db.client.projectActivity.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { projectId: project.id, targetId: 't1' } }),
+      )
+      expect(db.client.projectActivity.count).toHaveBeenLastCalledWith({
+        where: { projectId: project.id, targetId: 't1' },
+      })
+      await svc.activity(project.id, 'ada')
+      expect(db.client.projectActivity.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { projectId: project.id } }),
+      )
+    })
   })
 })

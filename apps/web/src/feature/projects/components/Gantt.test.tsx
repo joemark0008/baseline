@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { PhaseData } from '../lib'
 import { Gantt, ganttWindow } from './Gantt'
 
@@ -16,6 +17,8 @@ const task = (over: Partial<PhaseData['tasks'][number]>): PhaseData['tasks'][num
   dueDate: '2026-12-02',
   overdue: false,
   predecessor: null,
+  position: 1,
+  predecessorConflict: false,
   createdAt: '2026-11-01T00:00:00Z',
   updatedAt: '2026-11-01T00:00:00Z',
   ...over,
@@ -88,5 +91,114 @@ describe('Gantt', () => {
       />,
     )
     expect(screen.getByText(/add start and end dates/i)).toBeInTheDocument()
+  })
+})
+
+describe('Gantt interaction (feature 010)', () => {
+  const dated = [
+    {
+      ...phases[1],
+      tasks: [
+        task({
+          id: 't3',
+          phaseId: 'ph2',
+          title: 'Both dates',
+          startDate: '2026-11-03',
+          dueDate: '2026-11-10',
+        }),
+        task({
+          id: 't4',
+          phaseId: 'ph2',
+          title: 'Conflicting',
+          startDate: '2026-11-01',
+          dueDate: '2026-11-05',
+          predecessor: { id: 't3', title: 'Both dates' },
+          predecessorConflict: true,
+        }),
+        phases[1].tasks[0],
+      ],
+    },
+  ]
+
+  it('keeps bars as plain images without callbacks and shows the conflict cue', () => {
+    render(<Gantt phases={dated} startDate={null} targetGoLiveDate={null} />)
+    expect(
+      screen.getByRole('img', { name: 'Both dates: 2026-11-03 to 2026-11-10' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Both dates/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Starts before Both dates is due' })).toBeInTheDocument()
+  })
+
+  it('shifts a bar by a week from the keyboard and saves on Enter', async () => {
+    const onTaskDatesChange = vi.fn().mockResolvedValue(undefined)
+    render(
+      <Gantt
+        phases={dated}
+        startDate={null}
+        targetGoLiveDate={null}
+        onTaskDatesChange={onTaskDatesChange}
+      />,
+    )
+    const bar = screen.getByRole('button', { name: /^Both dates: 2026-11-03 to 2026-11-10/ })
+    bar.focus()
+    await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}')
+    expect(
+      screen.getByRole('button', { name: /^Both dates: 2026-11-10 to 2026-11-17/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Both dates now 10 Nov to 17 Nov/)).toBeInTheDocument()
+    await userEvent.keyboard('{Enter}')
+    expect(onTaskDatesChange).toHaveBeenCalledWith('t3', {
+      startDate: '2026-11-10',
+      dueDate: '2026-11-17',
+    })
+    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+  })
+
+  it('resizes only the due date with Alt, cancels with Escape, and moves a due-only marker', async () => {
+    const onTaskDatesChange = vi.fn().mockResolvedValue(undefined)
+    render(
+      <Gantt
+        phases={dated}
+        startDate={null}
+        targetGoLiveDate={null}
+        onTaskDatesChange={onTaskDatesChange}
+      />,
+    )
+    const bar = screen.getByRole('button', { name: /^Both dates: 2026-11-03 to 2026-11-10/ })
+    bar.focus()
+    await userEvent.keyboard('{Alt>}{ArrowRight}{ArrowRight}{/Alt}')
+    expect(
+      screen.getByRole('button', { name: /^Both dates: 2026-11-03 to 2026-11-12/ }),
+    ).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(
+      screen.getByRole('button', { name: /^Both dates: 2026-11-03 to 2026-11-10/ }),
+    ).toBeInTheDocument()
+    expect(onTaskDatesChange).not.toHaveBeenCalled()
+    const marker = screen.getByRole('button', { name: /^Run workshop: due 2026-11-20/ })
+    marker.focus()
+    await userEvent.keyboard('{ArrowLeft}{Enter}')
+    expect(onTaskDatesChange).toHaveBeenCalledWith('t2', { startDate: null, dueDate: '2026-11-19' })
+  })
+
+  it('leaves phase bars read-only for Members and draggable for Managers', () => {
+    const { rerender } = render(
+      <Gantt phases={dated} startDate={null} targetGoLiveDate={null} onTaskDatesChange={vi.fn()} />,
+    )
+    expect(
+      screen.getByRole('img', { name: 'Training: 2026-11-01 to 2026-12-15' }),
+    ).toBeInTheDocument()
+    rerender(
+      <Gantt
+        phases={dated}
+        startDate={null}
+        targetGoLiveDate={null}
+        onTaskDatesChange={vi.fn()}
+        onPhaseDatesChange={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: /^Training: 2026-11-01 to 2026-12-15/ }),
+    ).toBeInTheDocument()
   })
 })

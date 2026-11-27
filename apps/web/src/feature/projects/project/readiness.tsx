@@ -1,37 +1,41 @@
 import { useMutation } from '@apollo/client/react'
-import { ExternalLink, MoreHorizontal } from 'lucide-react'
-import { useState } from 'react'
+import {
+  closestCorners,
+  DndContext,
+  useDroppable,
+  type DragEndEvent,
+  type DragOverEvent,
+  type UniqueIdentifier,
+} from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { useMemo, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DeliverableDialog } from '../components/DeliverableDialog'
+import { DeliverableRow } from '../components/DeliverableRow'
 import { ReviewDialog } from '../components/ReviewDialog'
-import { StatusBadge } from '../components/StatusBadge'
-import { formatDate, message, type DeliverableData } from '../lib'
-import { PROJECT, REMOVE_PROJECT_DELIVERABLE } from '../operations'
+import { makeAnnouncements, screenReaderInstructions } from '../dnd/announcements'
+import { containerOf, previewMove, resolveDrop, type Containers } from '../dnd/resolve-drop'
+import { useWorkSensors } from '../dnd/sensors'
+import { message, neighboursFor, type DeliverableData } from '../lib'
+import { MOVE_PROJECT_DELIVERABLE, PROJECT, REMOVE_PROJECT_DELIVERABLE } from '../operations'
 import { useProject } from './context'
 
-/** FR-015 to FR-017: deliverables and master-data readiness per phase, with review outcomes. */
+const groupId = (phaseId: string) => `dphase:${phaseId}`
+const phaseOfGroup = (id: UniqueIdentifier): string | null =>
+  typeof id === 'string' && id.startsWith('dphase:') ? id.slice(7) : null
+
+/** FR-015 to FR-017, plus US4: deliverables per phase, reordered and re-phased by drag or menu. */
 export function ProjectReadinessTab() {
   const { project } = useProject()
-  const phases = [...project.phases].sort((a, b) => a.order - b.order)
+  const phases = useMemo(
+    () => [...project.phases].sort((a, b) => a.order - b.order),
+    [project.phases],
+  )
   const total = phases.reduce((n, p) => n + p.deliverables.length, 0)
   const ready = phases.reduce(
     (n, p) => n + p.deliverables.filter((d) => d.status === 'READY').length,
@@ -42,6 +46,104 @@ export function ProjectReadinessTab() {
   const [reviewing, setReviewing] = useState<DeliverableData | null>(null)
   const [removing, setRemoving] = useState<DeliverableData | null>(null)
   const [remove] = useMutation(REMOVE_PROJECT_DELIVERABLE, { refetchQueries: [PROJECT] })
+  const [moveDeliverable] = useMutation(MOVE_PROJECT_DELIVERABLE, { refetchQueries: [PROJECT] })
+  const sensors = useWorkSensors()
+  const source = useMemo<Containers>(
+    () =>
+      Object.fromEntries(
+        phases.map((p) => [
+          p.id,
+          [...p.deliverables].sort((a, b) => a.order - b.order).map((d) => d.id),
+        ]),
+      ),
+    [phases],
+  )
+  const [preview, setPreview] = useState<Containers | null>(null)
+  const groups = preview ?? source
+  const byId = useMemo(
+    () => new Map(phases.flatMap((p) => p.deliverables).map((d) => [d.id, d])),
+    [phases],
+  )
+  const phaseName = useMemo(() => new Map(phases.map((p) => [p.id, p.name])), [phases])
+  const announcements = useMemo(
+    () =>
+      makeAnnouncements(
+        (id) => {
+          const d = byId.get(String(id))
+          const phase = containerOf(groups, id, phaseOfGroup)
+          if (!d || !phase) return null
+          const ids = groups[phase]
+          return {
+            title: d.title,
+            container: phaseName.get(phase) ?? 'phase',
+            index: ids.indexOf(d.id) + 1,
+            count: ids.length,
+          }
+        },
+        (id) => {
+          const phase = containerOf(groups, id, phaseOfGroup)
+          if (!phase) return null
+          const ids = groups[phase]
+          const index = phaseOfGroup(id) !== null ? ids.length : ids.indexOf(String(id)) + 1
+          return {
+            container: phaseName.get(phase) ?? 'phase',
+            index: Math.max(1, index),
+            count: Math.max(1, ids.length),
+          }
+        },
+        'deliverable',
+      ),
+    [byId, groups, phaseName],
+  )
+
+  async function save(input: {
+    id: string
+    phaseId?: string
+    afterId?: string
+    beforeId?: string
+  }) {
+    try {
+      await moveDeliverable({ variables: { input } })
+    } catch (e) {
+      toast.error(message(e))
+    }
+  }
+
+  function onDragOver({ active, over }: DragOverEvent) {
+    if (!over) return
+    const from = containerOf(groups, active.id, phaseOfGroup)
+    const to = containerOf(groups, over.id, phaseOfGroup)
+    if (!from || !to || from === to) return
+    setPreview((prev) =>
+      previewMove(prev ?? source, String(active.id), from, to, over.id, phaseOfGroup),
+    )
+  }
+
+  function onDragEnd({ active, over }: DragEndEvent) {
+    const id = String(active.id)
+    const drop = resolveDrop(groups, source, id, over?.id ?? null, phaseOfGroup)
+    setPreview(null)
+    if (!drop) return
+    const from = containerOf(source, id, phaseOfGroup)
+    void save({
+      id,
+      ...(drop.container !== from ? { phaseId: drop.container } : {}),
+      afterId: drop.neighbours.afterTaskId,
+      beforeId: drop.neighbours.beforeTaskId,
+    })
+  }
+
+  const moveToPhase = (d: DeliverableData, phaseId: string) => {
+    const n = neighboursFor(source[phaseId] ?? [], d.id, null)
+    void save({ id: d.id, phaseId, afterId: n.afterTaskId })
+  }
+  const moveStep = (d: DeliverableData, direction: -1 | 1) => {
+    const ids = source[d.phaseId] ?? []
+    const swapWith = ids[ids.indexOf(d.id) + direction]
+    if (!swapWith) return
+    const n = neighboursFor(ids, d.id, swapWith)
+    void save({ id: d.id, afterId: n.afterTaskId, beforeId: n.beforeTaskId })
+  }
 
   async function confirmRemove(): Promise<string | null> {
     if (!removing) return null
@@ -62,7 +164,8 @@ export function ProjectReadinessTab() {
             <CardTitle>Data readiness and deliverables</CardTitle>
             <CardDescription>
               Phase outputs and master-data categories, who prepares and reviews them, and where
-              they stand. This planner tracks readiness; it holds no patient records.
+              they stand. Drag a row to reorder it or move it to another phase. This planner tracks
+              readiness; it holds no patient records.
             </CardDescription>
           </div>
           <Badge variant="outline">
@@ -70,114 +173,80 @@ export function ProjectReadinessTab() {
           </Badge>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {phases.map((phase) => (
-            <section key={phase.id} aria-label={phase.name} className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold">{phase.name}</h3>
-                <Button size="sm" variant="outline" onClick={() => setAdding(phase.id)}>
-                  Add deliverable
-                </Button>
-              </div>
-              {phase.deliverables.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No deliverables in this phase yet.</p>
-              ) : (
-                <Table aria-label={`${phase.name} deliverables`}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Deliverable</TableHead>
-                      <TableHead>Kind</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Reviewer</TableHead>
-                      <TableHead>Due</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Review</TableHead>
-                      <TableHead className="w-12">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {phase.deliverables.map((d) => (
-                      <TableRow key={d.id}>
-                        <TableCell className="min-w-56">
-                          <p className="font-medium">{d.title}</p>
-                          {d.links.length ? (
-                            <p className="mt-1 flex flex-wrap gap-2 text-xs">
-                              {d.links.map((l) => (
-                                <a
-                                  key={l.url}
-                                  href={l.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-muted-foreground hover:underline"
-                                >
-                                  <ExternalLink aria-hidden="true" className="size-3" />
-                                  {l.label}
-                                </a>
-                              ))}
-                            </p>
-                          ) : null}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge value={d.kind} />
-                        </TableCell>
-                        <TableCell>{d.owner?.name ?? 'Unassigned'}</TableCell>
-                        <TableCell>{d.reviewer?.name ?? '—'}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(d.dueDate)}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge value={d.status} />
-                        </TableCell>
-                        <TableCell>
-                          {d.reviewOutcome ? (
-                            <span className="flex flex-col gap-1">
-                              <StatusBadge value={d.reviewOutcome} />
-                              {d.reviewNote ? (
-                                <span className="text-xs text-muted-foreground">
-                                  {d.reviewNote}
-                                </span>
-                              ) : null}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Not reviewed</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Actions for ${d.title}`}
-                              >
-                                <MoreHorizontal aria-hidden="true" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onSelect={() => setEditing(d)}>
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setReviewing(d)}>
-                                Record review
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onSelect={() => setRemoving(d)}
-                              >
-                                Remove
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </section>
-          ))}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            accessibility={{ announcements, screenReaderInstructions }}
+            onDragStart={() => setPreview(source)}
+            onDragOver={onDragOver}
+            onDragEnd={onDragEnd}
+            onDragCancel={() => setPreview(null)}
+          >
+            {phases.map((phase) => {
+              const ids = groups[phase.id] ?? []
+              return (
+                <PhaseSection
+                  key={phase.id}
+                  phaseId={phase.id}
+                  name={phase.name}
+                  onAdd={() => setAdding(phase.id)}
+                >
+                  {ids.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No deliverables in this phase yet.
+                    </p>
+                  ) : (
+                    <SortableContext
+                      id={groupId(phase.id)}
+                      items={ids}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <Table aria-label={`${phase.name} deliverables`}>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10">
+                              <span className="sr-only">Reorder</span>
+                            </TableHead>
+                            <TableHead>Deliverable</TableHead>
+                            <TableHead>Kind</TableHead>
+                            <TableHead>Owner</TableHead>
+                            <TableHead>Reviewer</TableHead>
+                            <TableHead>Due</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Review</TableHead>
+                            <TableHead className="w-12">
+                              <span className="sr-only">Actions</span>
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ids.map((id, index) => {
+                            const d = byId.get(id)
+                            if (!d) return null
+                            return (
+                              <DeliverableRow
+                                key={id}
+                                deliverable={d}
+                                otherPhases={phases.filter((p) => p.id !== d.phaseId)}
+                                canEdit={project.can.edit}
+                                isFirst={index === 0}
+                                isLast={index === ids.length - 1}
+                                onEdit={setEditing}
+                                onReview={setReviewing}
+                                onRemove={setRemoving}
+                                onMoveToPhase={moveToPhase}
+                                onMoveStep={moveStep}
+                              />
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </SortableContext>
+                  )}
+                </PhaseSection>
+              )
+            })}
+          </DndContext>
         </CardContent>
       </Card>
       {adding ? (
@@ -213,5 +282,38 @@ export function ProjectReadinessTab() {
         onConfirm={confirmRemove}
       />
     </>
+  )
+}
+
+/** A phase's deliverables: a droppable section so rows can be dragged in from another phase. */
+function PhaseSection({
+  phaseId,
+  name,
+  onAdd,
+  children,
+}: {
+  phaseId: string
+  name: string
+  onAdd: () => void
+  children: ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: groupId(phaseId),
+    data: { type: 'phase', phaseId },
+  })
+  return (
+    <section
+      ref={setNodeRef}
+      aria-label={name}
+      className={`flex flex-col gap-2 rounded-lg motion-safe:transition-colors ${isOver ? 'ring-2 ring-primary/30' : ''}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">{name}</h3>
+        <Button size="sm" variant="outline" onClick={onAdd}>
+          Add deliverable
+        </Button>
+      </div>
+      {children}
+    </section>
   )
 }

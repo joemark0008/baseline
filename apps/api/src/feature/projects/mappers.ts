@@ -24,6 +24,9 @@ import type {
 /** The Prisma `select` for a person wherever one is embedded. */
 export const PERSON = { select: { id: true, name: true, email: true, image: true } }
 
+/** The Prisma `select` for a task's predecessor: its due date feeds `predecessorConflict`. */
+export const PREDECESSOR = { select: { id: true, title: true, dueDate: true } }
+
 export type PersonRow = { id: string; name: string; email: string; image: string | null }
 
 export interface TaskRow {
@@ -37,7 +40,8 @@ export interface TaskRow {
   priority: string
   startDate: Date | null
   dueDate: Date | null
-  predecessor: { id: string; title: string } | null
+  predecessor: { id: string; title: string; dueDate?: Date | null } | null
+  position?: number
   createdAt: Date
   updatedAt: Date
   comments?: CommentRow[]
@@ -132,6 +136,16 @@ export function toComment(row: CommentRow): TaskComment {
   }
 }
 
+/** Feature 010 FR-019: starts before its predecessor is due. A warning, never a refusal. */
+export function predecessorConflict(row: {
+  startDate: Date | null
+  predecessor: { dueDate?: Date | null } | null
+}): boolean {
+  const start = toIsoDate(row.startDate)
+  const predecessorDue = toIsoDate(row.predecessor?.dueDate)
+  return start !== null && predecessorDue !== null && start < predecessorDue
+}
+
 export function toTask(row: TaskRow, today?: string): ProjectTask {
   const dueDate = toIsoDate(row.dueDate)
   return {
@@ -147,6 +161,8 @@ export function toTask(row: TaskRow, today?: string): ProjectTask {
     dueDate,
     overdue: isOverdue(dueDate, row.status, today),
     predecessor: row.predecessor ? { id: row.predecessor.id, title: row.predecessor.title } : null,
+    position: row.position ?? 0,
+    predecessorConflict: predecessorConflict(row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     comments: (row.comments ?? []).map(toComment),
@@ -265,6 +281,8 @@ export function toListItem(
     phases: { status: string }[]
     tasks: { status: string; dueDate: Date | null }[]
     members: { role: string }[]
+    /** Prisma filtered relation count: the caller's open tasks (feature 010). */
+    _count?: { tasks: number }
   },
   today?: string,
 ): ProjectListItem {
@@ -277,6 +295,7 @@ export function toListItem(
     targetGoLiveDate: toIsoDate(row.targetGoLiveDate),
     myRole: (row.members[0]?.role ?? 'MEMBER') as ProjectRole,
     summary: summarize(row.phases, row.tasks, today),
+    myOpenTasks: row._count?.tasks ?? 0,
     updatedAt: row.updatedAt,
   }
 }
@@ -288,10 +307,10 @@ export const PROJECT_INCLUDE = (now: Date) => ({
     include: {
       owner: PERSON,
       tasks: {
-        orderBy: [{ dueDate: 'asc' as const }, { title: 'asc' as const }],
+        orderBy: [{ position: 'asc' as const }, { createdAt: 'asc' as const }],
         include: {
           owner: PERSON,
-          predecessor: { select: { id: true, title: true } },
+          predecessor: PREDECESSOR,
           comments: {
             orderBy: { createdAt: 'asc' as const },
             include: { author: PERSON, mentions: { include: { user: PERSON } } },

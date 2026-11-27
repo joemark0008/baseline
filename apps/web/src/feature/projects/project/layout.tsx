@@ -1,34 +1,51 @@
 import { useQuery } from '@apollo/client/react'
-import { Link, Outlet, useLocation } from '@tanstack/react-router'
-import { useState } from 'react'
+import { getRouteApi, Link, Outlet, useLocation } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { ProjectDialog } from '../components/ProjectDialog'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatDate } from '../lib'
 import { PROJECT } from '../operations'
+import { writeViewPreference, type WorkView } from '../view-preferences'
 import { ProjectContext } from './context'
 
-const TABS = [
+const WORK_VIEWS: ReadonlyArray<{
+  view: WorkView
+  label: string
+  to: '/projects/$id/board' | '/projects/$id/list' | '/projects/$id/timeline'
+}> = [
+  { view: 'board', label: 'Board', to: '/projects/$id/board' },
+  { view: 'list', label: 'List', to: '/projects/$id/list' },
+  { view: 'timeline', label: 'Timeline', to: '/projects/$id/timeline' },
+]
+
+const PAGES = [
   { label: 'Overview', to: '/projects/$id' as const, exact: true },
-  { label: 'Timeline', to: '/projects/$id/timeline' as const },
-  { label: 'Tasks', to: '/projects/$id/tasks' as const },
   { label: 'Data readiness', to: '/projects/$id/readiness' as const },
   { label: 'Team', to: '/projects/$id/team' as const },
   { label: 'Stakeholders', to: '/projects/$id/stakeholders' as const },
   { label: 'Activity', to: '/projects/$id/activity' as const },
 ]
 
-/** Header, summary strip and tab navigation shared by every project page. */
+const projectRoute = getRouteApi('/_protected/projects/$id')
+
+/** Compact header, the Work switcher and the project pages shared by every project route (US5). */
 export function ProjectLayout({ id }: { id: string }) {
   const { data, loading, error, refetch } = useQuery(PROJECT, {
     variables: { id },
     fetchPolicy: 'cache-and-network',
   })
   const { pathname } = useLocation()
+  const search = projectRoute.useSearch()
   const [editing, setEditing] = useState(false)
+  const currentView =
+    WORK_VIEWS.find((v) => pathname.startsWith(v.to.replace('$id', id)))?.view ?? null
+  useEffect(() => {
+    if (currentView) writeViewPreference(id, { view: currentView, search })
+  }, [id, currentView, search])
   if (error) {
     return (
       <Alert variant="destructive" role="alert">
@@ -40,21 +57,37 @@ export function ProjectLayout({ id }: { id: string }) {
     return <p className="text-sm text-muted-foreground">{loading ? 'Loading…' : 'Not found'}</p>
   const project = data.project
   const { summary } = project
-  const current = project.phases.find((p) => p.status === 'IN_PROGRESS') ?? null
   return (
     <ProjectContext.Provider value={{ project, refetch }}>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <PageHeader
             title={project.name}
             description={`${project.hospitalName} · HIS implementation`}
           />
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <StatusBadge value={project.status} />
             <StatusBadge value={project.myRole} />
-            <span className="text-xs text-muted-foreground">
-              {formatDate(project.startDate)} – {formatDate(project.targetGoLiveDate)}
+            <span className="flex items-center gap-2">
+              <Progress
+                value={summary.progress}
+                className="w-24"
+                aria-label={`${summary.progress}% of phases complete`}
+              />
+              <span className="text-xs text-muted-foreground">
+                {summary.completePhases} of {summary.phaseCount} phases
+              </span>
             </span>
+            <span className="text-xs text-muted-foreground">
+              {summary.openTasks} open ·{' '}
+              <span className={summary.overdueTasks ? 'font-medium text-destructive' : ''}>
+                {summary.overdueTasks} overdue
+              </span>
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Go-live {formatDate(project.targetGoLiveDate)}
+            </span>
+            <span className="text-xs text-muted-foreground">{project.members.length} people</span>
           </div>
         </div>
         {project.can.manage ? (
@@ -63,61 +96,42 @@ export function ProjectLayout({ id }: { id: string }) {
           </Button>
         ) : null}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="gap-3 pb-2">
-            <CardDescription>Progress</CardDescription>
-            <CardTitle className="text-3xl">{summary.progress}%</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">
-            {summary.completePhases} of {summary.phaseCount} phases complete
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="gap-3 pb-2">
-            <CardDescription>Current phase</CardDescription>
-            <CardTitle className="text-xl">{current?.name ?? 'None in progress'}</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">
-            {current
-              ? `Ends ${formatDate(current.endDate)}`
-              : 'Mark a phase as in progress on Overview'}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="gap-3 pb-2">
-            <CardDescription>Open tasks</CardDescription>
-            <CardTitle className="text-3xl">{summary.openTasks}</CardTitle>
-          </CardHeader>
-          <CardContent
-            className={`text-xs ${summary.overdueTasks ? 'text-destructive' : 'text-muted-foreground'}`}
-          >
-            {summary.overdueTasks} overdue
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="gap-3 pb-2">
-            <CardDescription>Target go-live</CardDescription>
-            <CardTitle className="text-xl">{formatDate(project.targetGoLiveDate)}</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">
-            {project.members.length} people on the project
-          </CardContent>
-        </Card>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+        <nav aria-label="Work views" className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase">Work</span>
+          <div className="inline-flex rounded-lg border bg-muted/40 p-0.5" role="group">
+            {WORK_VIEWS.map((view) => {
+              const active = currentView === view.view
+              return (
+                <Button key={view.view} asChild size="sm" variant={active ? 'default' : 'ghost'}>
+                  <Link
+                    to={view.to}
+                    params={{ id }}
+                    search={(prev) => prev}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    {view.label}
+                  </Link>
+                </Button>
+              )
+            })}
+          </div>
+        </nav>
+        <nav aria-label="Project pages" className="flex flex-wrap items-center gap-1">
+          <span className="mr-1 text-xs font-medium text-muted-foreground uppercase">Pages</span>
+          {PAGES.map((page) => {
+            const href = page.to.replace('$id', id)
+            const active = page.exact ? pathname === href : pathname.startsWith(href)
+            return (
+              <Button key={page.to} asChild size="sm" variant={active ? 'secondary' : 'ghost'}>
+                <Link to={page.to} params={{ id }} aria-current={active ? 'page' : undefined}>
+                  {page.label}
+                </Link>
+              </Button>
+            )
+          })}
+        </nav>
       </div>
-      <nav aria-label="Project pages" className="flex flex-wrap gap-2 border-b pb-3">
-        {TABS.map((tab) => {
-          const href = tab.to.replace('$id', id)
-          const active = tab.exact ? pathname === href : pathname.startsWith(href)
-          return (
-            <Button key={tab.to} asChild size="sm" variant={active ? 'default' : 'ghost'}>
-              <Link to={tab.to} params={{ id }} aria-current={active ? 'page' : undefined}>
-                {tab.label}
-              </Link>
-            </Button>
-          )
-        })}
-      </nav>
       <Outlet />
       {editing ? <ProjectDialog open project={project} onOpenChange={setEditing} /> : null}
     </ProjectContext.Provider>

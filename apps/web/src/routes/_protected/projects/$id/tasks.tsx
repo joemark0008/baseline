@@ -1,9 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ProjectTasksTab } from '@/feature/projects/project/tasks'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
+/** The flat tasks table became the List (feature 010); old links and emails still land here. */
 export const Route = createFileRoute('/_protected/projects/$id/tasks')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    task: typeof search.task === 'string' ? search.task : undefined,
-  }),
-  component: ProjectTasksTab,
+  beforeLoad: ({ params, search }) => {
+    throw redirect({ to: '/projects/$id/list', params, search, replace: true })
+  },
 })

@@ -5,6 +5,7 @@ import type { AuthSession } from '../../auth/auth.config.js'
 import { DeliverablesService } from './deliverables.service.js'
 import {
   AddDeliverableInput,
+  MoveDeliverableInput,
   ReviewDeliverableInput,
   UpdateDeliverableInput,
 } from './dto/deliverable.input.js'
@@ -41,6 +42,17 @@ export class DeliverablesResolver {
     @Session() session: AuthSession,
   ): Promise<ProjectDeliverable> {
     return this.deliverables.review(input, session.user.id)
+  }
+
+  @Mutation(() => ProjectDeliverable, {
+    description: 'Drag-and-drop move within or across phases. Members only.',
+  })
+  @RequirePermission('projects', 'view')
+  moveProjectDeliverable(
+    @Args('input') input: MoveDeliverableInput,
+    @Session() session: AuthSession,
+  ): Promise<ProjectDeliverable> {
+    return this.deliverables.move(input, session.user.id)
   }
 
   @Mutation(() => Boolean, { description: 'Members only.' })

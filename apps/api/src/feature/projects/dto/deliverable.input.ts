@@ -55,6 +55,15 @@ export class UpdateDeliverableInput {
   links?: DeliverableLinkInput[] | null
 }
 
+/** A drag-and-drop move within or across phases (feature 010). */
+@InputType()
+export class MoveDeliverableInput {
+  @Field(() => ID) @IsString() id: string
+  @Field(() => ID, { nullable: true }) @IsOptional() @IsString() phaseId?: string | null
+  @Field(() => ID, { nullable: true }) @IsOptional() @IsString() afterId?: string | null
+  @Field(() => ID, { nullable: true }) @IsOptional() @IsString() beforeId?: string | null
+}
+
 @InputType()
 export class ReviewDeliverableInput {
   @Field(() => ID) @IsString() id: string
