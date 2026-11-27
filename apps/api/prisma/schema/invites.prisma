@@ -11,8 +11,13 @@ model Invite {
   expiresAt   DateTime
   acceptedAt  DateTime?
   createdAt   DateTime  @default(now())
+  /// Set when the invite also joins an implementation project on acceptance (feature 007).
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectRole ProjectRole?
 
   @@unique([tokenHash])
+  @@index([projectId])
   @@index([email])
   @@map("invite")
 }

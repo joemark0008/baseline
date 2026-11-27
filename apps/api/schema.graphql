@@ -23,6 +23,50 @@ type AccessChangesPage {
   meta: PageMeta!
 }
 
+input AddDeliverableInput {
+  dueDate: String
+  kind: DeliverableKind
+  ownerId: ID
+  phaseId: ID!
+  projectId: ID!
+  reviewerId: ID
+  title: String!
+}
+
+input AddPhaseInput {
+  description: String
+  name: String!
+  projectId: ID!
+}
+
+input AddStakeholderInput {
+  email: String
+  name: String!
+  notes: String
+  organization: String!
+  phone: String
+  projectId: ID!
+  role: String!
+  userId: ID
+}
+
+input AddTaskCommentInput {
+  body: String!
+  mentionUserIds: [ID!]
+  taskId: ID!
+}
+
+input AddTemplateDeliverableInput {
+  kind: DeliverableKind
+  templatePhaseId: ID!
+  title: String!
+}
+
+input AddTemplatePhaseInput {
+  description: String
+  name: String!
+}
+
 type AreaAction {
   action: PermissionAction!
   description: String!
@@ -49,16 +93,59 @@ type CompleteSetupResult {
   email: String!
 }
 
+input CreateProjectInput {
+  description: String
+  hospitalName: String!
+  name: String!
+  startDate: String
+  targetGoLiveDate: String
+}
+
 input CreateRoleInput {
   description: String
   grants: [GrantInput!]!
   name: String!
 }
 
+input CreateTaskInput {
+  description: String
+  dueDate: String
+  ownerId: ID
+  phaseId: ID!
+  predecessorId: ID
+  priority: TaskPriority
+  projectId: ID!
+  startDate: String
+  status: TaskStatus
+  title: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+enum DeliverableKind {
+  DATA_CATEGORY
+  OUTPUT
+}
+
+type DeliverableLink {
+  label: String!
+  url: String!
+}
+
+input DeliverableLinkInput {
+  label: String!
+  url: String!
+}
+
+enum DeliverableStatus {
+  IN_PROGRESS
+  IN_REVIEW
+  NOT_STARTED
+  READY
+}
 
 type Grant {
   action: PermissionAction!
@@ -80,6 +167,22 @@ type Invite {
   expiresAt: DateTime!
   id: ID!
   role: UserRole! @deprecated(reason: "Use accessRole; admin/user is derived from the role.")
+}
+
+input InviteProjectMemberInput {
+  email: String!
+  projectId: ID!
+  role: ProjectRole!
+}
+
+type InviteProjectMemberResult {
+  emailSent: Boolean!
+
+  """The pending invite, when an email invite was sent."""
+  invite: ProjectInvite
+
+  """Set when an existing account was added directly."""
+  joinedUserId: ID
 }
 
 input InviteUserInput {
@@ -119,6 +222,27 @@ type Mutation {
   """Burn the invite token for the signed-in user and apply its role."""
   acceptInvite(token: String!): AcceptInviteResult!
 
+  """Members only."""
+  addProjectDeliverable(input: AddDeliverableInput!): ProjectDeliverable!
+
+  """Add an existing account. Managers only."""
+  addProjectMember(projectId: ID!, role: ProjectRole!, userId: ID!): Project!
+
+  """Managers only."""
+  addProjectPhase(input: AddPhaseInput!): ProjectPhase!
+
+  """Managers only."""
+  addProjectStakeholder(input: AddStakeholderInput!): ProjectStakeholder!
+
+  """Members only; mentions must be members and are emailed."""
+  addTaskComment(input: AddTaskCommentInput!): TaskComment!
+
+  """Needs projects:edit."""
+  addTemplateDeliverable(input: AddTemplateDeliverableInput!): TemplateDeliverable!
+
+  """Needs projects:edit."""
+  addTemplatePhase(input: AddTemplatePhaseInput!): TemplatePhase!
+
   """Cancel a person's pending reset link. Admin role only."""
   cancelPasswordResetLink(userId: ID!): Boolean!
 
@@ -133,14 +257,30 @@ type Mutation {
   """Create a one-time, 24-hour link for another person. Admin role only."""
   createPasswordResetLink(userId: ID!): PasswordResetLink!
 
+  """
+  Create a project from the standard template; you become its Manager. Needs projects:add.
+  """
+  createProject(input: CreateProjectInput!): Project!
+
+  """Members only."""
+  createProjectTask(input: CreateTaskInput!): ProjectTask!
+
   """Needs roles:add."""
   createRole(input: CreateRoleInput!): Role!
 
   """Sign a person out and block sign-in. Needs users:delete."""
   deactivateUser(id: ID!): User!
 
+  """Members only."""
+  deleteProjectTask(id: ID!): Boolean!
+
   """Deletes an unused custom role. Needs roles:delete."""
   deleteRole(id: ID!): Boolean!
+
+  """
+  Add by email: an existing account joins now, anyone else is emailed an invite. Managers only.
+  """
+  inviteProjectMember(input: InviteProjectMemberInput!): InviteProjectMemberResult!
 
   """Invite a person by email. Needs invites:add."""
   inviteUser(input: InviteUserInput!): InviteUserResult!
@@ -148,17 +288,65 @@ type Mutation {
   """Let a deactivated person sign in again. Admin role only."""
   reactivateUser(id: ID!): User!
 
+  """Members only."""
+  removeProjectDeliverable(id: ID!): Boolean!
+
+  """Managers only; a project keeps at least one Manager."""
+  removeProjectMember(projectId: ID!, userId: ID!): Project!
+
+  """Managers only; the phase must have no tasks or deliverables."""
+  removeProjectPhase(id: ID!): Boolean!
+
+  """Managers only."""
+  removeProjectStakeholder(id: ID!): Boolean!
+
+  """Needs projects:edit."""
+  removeTemplateDeliverable(id: ID!): Boolean!
+
+  """Needs projects:edit."""
+  removeTemplatePhase(id: ID!): Boolean!
+
+  """Managers only; list every phase once."""
+  reorderProjectPhases(phaseIds: [ID!]!, projectId: ID!): [ProjectPhase!]!
+
+  """Needs projects:edit."""
+  reorderTemplatePhases(ids: [ID!]!): [TemplatePhase!]!
+
   """Set a new password with a reset link. Public."""
   resetPassword(input: ResetPasswordInput!): Boolean!
+
+  """The reviewer or a Manager records the outcome."""
+  reviewProjectDeliverable(input: ReviewDeliverableInput!): ProjectDeliverable!
 
   """Revoke a pending invite. Needs invites:delete."""
   revokeInvite(id: ID!): Boolean!
 
+  """Managers only; a project keeps at least one Manager."""
+  setProjectMemberRole(projectId: ID!, role: ProjectRole!, userId: ID!): Project!
+
   """Put a person in a role. Needs roles:edit."""
   setUserRole(input: SetUserRoleInput!): User!
 
+  """Managers only."""
+  updateProject(input: UpdateProjectInput!): Project!
+
+  """Members only."""
+  updateProjectDeliverable(input: UpdateDeliverableInput!): ProjectDeliverable!
+
+  """Managers only."""
+  updateProjectPhase(input: UpdatePhaseInput!): ProjectPhase!
+
+  """Managers only."""
+  updateProjectStakeholder(input: UpdateStakeholderInput!): ProjectStakeholder!
+
+  """Members only."""
+  updateProjectTask(input: UpdateTaskInput!): ProjectTask!
+
   """Needs roles:edit."""
   updateRole(input: UpdateRoleInput!): Role!
+
+  """Needs projects:edit."""
+  updateTemplatePhase(input: UpdateTemplatePhaseInput!): TemplatePhase!
 
   """Change a person's name or username. Needs users:edit."""
   updateUser(input: UpdateUserInput!): User!
@@ -219,6 +407,217 @@ type PermissionArea {
   name: String!
 }
 
+type PersonSummary {
+  email: String!
+  id: ID!
+  image: String
+  name: String!
+}
+
+enum PhaseStatus {
+  AT_RISK
+  COMPLETE
+  IN_PROGRESS
+  UPCOMING
+}
+
+type Project {
+  can: ProjectCapabilities!
+  createdAt: DateTime!
+  description: String
+  hospitalName: String!
+  id: ID!
+  members: [ProjectMember!]!
+  myRole: ProjectRole!
+  name: String!
+
+  """Pending email invites; Managers only, otherwise empty."""
+  pendingInvites: [ProjectInvite!]!
+  phases: [ProjectPhase!]!
+  stakeholders: [ProjectStakeholder!]!
+
+  """YYYY-MM-DD"""
+  startDate: String
+  status: ProjectStatus!
+  summary: ProjectSummary!
+
+  """YYYY-MM-DD"""
+  targetGoLiveDate: String
+  updatedAt: DateTime!
+}
+
+type ProjectActivity {
+  actor: PersonSummary
+  createdAt: DateTime!
+  id: ID!
+  kind: ProjectActivityKind!
+  summary: String!
+  targetId: ID
+  targetType: String
+}
+
+enum ProjectActivityKind {
+  COMMENT_ADDED
+  DELIVERABLE_ADDED
+  DELIVERABLE_REMOVED
+  DELIVERABLE_REVIEWED
+  DELIVERABLE_UPDATED
+  MEMBER_ADDED
+  MEMBER_INVITED
+  MEMBER_REMOVED
+  MEMBER_ROLE_CHANGED
+  PHASES_REORDERED
+  PHASE_ADDED
+  PHASE_REMOVED
+  PHASE_UPDATED
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  STAKEHOLDER_ADDED
+  STAKEHOLDER_REMOVED
+  STAKEHOLDER_UPDATED
+  TASK_CREATED
+  TASK_DELETED
+  TASK_UPDATED
+}
+
+type ProjectActivityPage {
+  data: [ProjectActivity!]!
+  meta: PageMeta!
+}
+
+type ProjectCapabilities {
+  """The caller is a member: tasks, deliverables and comments."""
+  edit: Boolean!
+
+  """
+  The caller is a Manager: tailor the plan, manage people and the project record.
+  """
+  manage: Boolean!
+}
+
+type ProjectDeliverable {
+  """YYYY-MM-DD"""
+  dueDate: String
+  id: ID!
+  kind: DeliverableKind!
+  links: [DeliverableLink!]!
+  order: Int!
+  owner: PersonSummary
+  phaseId: ID!
+  reviewNote: String
+  reviewOutcome: ReviewOutcome
+  reviewedAt: DateTime
+  reviewer: PersonSummary
+  status: DeliverableStatus!
+  title: String!
+}
+
+type ProjectInvite {
+  email: String!
+  expiresAt: DateTime!
+  id: ID!
+  role: ProjectRole!
+}
+
+type ProjectListItem {
+  hospitalName: String!
+  id: ID!
+  myRole: ProjectRole!
+  name: String!
+  startDate: String
+  status: ProjectStatus!
+  summary: ProjectSummary!
+  targetGoLiveDate: String
+  updatedAt: DateTime!
+}
+
+type ProjectMember {
+  addedAt: DateTime!
+  role: ProjectRole!
+  user: PersonSummary!
+}
+
+type ProjectPhase {
+  deliverables: [ProjectDeliverable!]!
+  description: String
+
+  """YYYY-MM-DD"""
+  endDate: String
+  id: ID!
+  name: String!
+  order: Int!
+  owner: PersonSummary
+
+  """YYYY-MM-DD"""
+  startDate: String
+  status: PhaseStatus!
+  tasks: [ProjectTask!]!
+}
+
+enum ProjectRole {
+  MANAGER
+  MEMBER
+}
+
+type ProjectStakeholder {
+  email: String
+  id: ID!
+  name: String!
+  notes: String
+  organization: String!
+  phone: String
+  role: String!
+
+  """Linked account, if any; not a membership."""
+  user: PersonSummary
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETE
+  ON_HOLD
+}
+
+type ProjectSummary {
+  completePhases: Int!
+  openTasks: Int!
+  overdueTasks: Int!
+  phaseCount: Int!
+
+  """Complete phases as a percentage of all phases."""
+  progress: Int!
+  totalTasks: Int!
+}
+
+type ProjectTask {
+  comments: [TaskComment!]!
+  createdAt: DateTime!
+  description: String
+
+  """YYYY-MM-DD"""
+  dueDate: String
+  id: ID!
+
+  """Due before today and not complete (FR-008)."""
+  overdue: Boolean!
+  owner: PersonSummary
+  phaseId: ID!
+  predecessor: TaskRef
+  priority: TaskPriority!
+  projectId: ID!
+
+  """YYYY-MM-DD"""
+  startDate: String
+  status: TaskStatus!
+  title: String!
+  updatedAt: DateTime!
+}
+
+type ProjectsPage {
+  data: [ProjectListItem!]!
+  meta: PageMeta!
+}
+
 type Query {
   """Access history, newest first. Needs roles:view."""
   accessChanges(page: Int = 1, perPage: Int = 10): AccessChangesPage!
@@ -228,6 +627,9 @@ type Query {
 
   """Paginated user list. Needs users:view."""
   findAllUsers(page: Int = 1, perPage: Int = 10): UsersPage!
+
+  """The standard implementation lifecycle, in order. Needs projects:view."""
+  implementationTemplate: [TemplatePhase!]!
 
   """Roles you may invite people into, default first. Needs invites:add."""
   inviteRoles: [RoleSummary!]!
@@ -246,6 +648,26 @@ type Query {
 
   """The roles grid rows. Needs roles:view."""
   permissionAreas: [PermissionArea!]!
+
+  """One project you belong to. Not found otherwise."""
+  project(id: ID!): Project!
+
+  """Who changed what, newest first. Members only."""
+  projectActivity(page: Int = 1, perPage: Int = 10, projectId: ID!): ProjectActivityPage!
+
+  """Active accounts not yet in the project. Managers only."""
+  projectMemberCandidates(projectId: ID!, search: String): [PersonSummary!]!
+
+  """One task with its comments. Members only."""
+  projectTask(id: ID!): ProjectTask!
+
+  """Tasks of a project, filtered. Members only."""
+  projectTasks(overdue: Boolean, ownerId: ID, phaseId: ID, projectId: ID!, status: TaskStatus): [ProjectTask!]!
+
+  """
+  Projects you belong to, most recently updated first. Needs projects:view.
+  """
+  projects(page: Int = 1, perPage: Int = 10): ProjectsPage!
 
   """One role. Needs roles:view."""
   role(id: ID!): Role!
@@ -266,6 +688,17 @@ type Query {
 input ResetPasswordInput {
   newPassword: String!
   token: String!
+}
+
+input ReviewDeliverableInput {
+  id: ID!
+  note: String
+  outcome: ReviewOutcome!
+}
+
+enum ReviewOutcome {
+  APPROVED
+  CHANGES_REQUESTED
 }
 
 type Role {
@@ -317,9 +750,111 @@ type SetupStatus {
   setupComplete: Boolean!
 }
 
+type TaskComment {
+  author: PersonSummary!
+  body: String!
+  createdAt: DateTime!
+  id: ID!
+  mentions: [PersonSummary!]!
+}
+
+enum TaskPriority {
+  HIGH
+  LOW
+  MEDIUM
+}
+
+type TaskRef {
+  id: ID!
+  title: String!
+}
+
+enum TaskStatus {
+  BLOCKED
+  COMPLETE
+  IN_PROGRESS
+  UPCOMING
+}
+
+type TemplateDeliverable {
+  id: ID!
+  kind: DeliverableKind!
+  order: Int!
+  title: String!
+}
+
+type TemplatePhase {
+  deliverables: [TemplateDeliverable!]!
+  description: String
+  id: ID!
+  name: String!
+  order: Int!
+}
+
+input UpdateDeliverableInput {
+  dueDate: String
+  id: ID!
+  links: [DeliverableLinkInput!]
+  ownerId: ID
+  reviewerId: ID
+  status: DeliverableStatus
+  title: String
+}
+
+input UpdatePhaseInput {
+  description: String
+  endDate: String
+  id: ID!
+  name: String
+  ownerId: ID
+  startDate: String
+  status: PhaseStatus
+}
+
+input UpdateProjectInput {
+  clearDates: Boolean
+  description: String
+  hospitalName: String
+  id: ID!
+  name: String
+  startDate: String
+  status: ProjectStatus
+  targetGoLiveDate: String
+}
+
 input UpdateRoleInput {
   description: String
   grants: [GrantInput!]
+  id: ID!
+  name: String
+}
+
+input UpdateStakeholderInput {
+  email: String
+  id: ID!
+  name: String
+  notes: String
+  organization: String
+  phone: String
+  role: String
+  userId: ID
+}
+
+input UpdateTaskInput {
+  description: String
+  dueDate: String
+  id: ID!
+  ownerId: ID
+  phaseId: ID
+  predecessorId: ID
+  priority: TaskPriority
+  startDate: String
+  status: TaskStatus
+  title: String
+}
+
+input UpdateTemplatePhaseInput {
+  description: String
   id: ID!
   name: String
 }

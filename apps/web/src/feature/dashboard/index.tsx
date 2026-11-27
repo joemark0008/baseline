@@ -1,17 +1,14 @@
+import { Link, useRouteContext } from '@tanstack/react-router'
 import { PageHeader } from '@/components/PageHeader'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { can } from '@/lib/access'
 
-const STEPS = [
-  ['/speckit-specify <what you want>', 'describe the feature'],
-  ['/speckit-plan', 'design it'],
-  ['/speckit-tasks', 'break it into tasks'],
-  ['/speckit-implement', 'build it'],
-] as const
-
-/** Placeholder home screen: replace it with the first feature from your spec. */
+/** Home: a short orientation and the way into the implementation projects. */
 export function DashboardPage() {
   const { current } = useCurrentUser()
+  const { access } = useRouteContext({ from: '/_protected' })
   return (
     <>
       <PageHeader
@@ -20,21 +17,22 @@ export function DashboardPage() {
       />
       <Card>
         <CardHeader>
-          <CardTitle>Start your first feature</CardTitle>
+          <CardTitle>HIS implementation projects</CardTitle>
           <CardDescription>
-            This screen is a placeholder. Replace it with the first feature from your spec.
+            Plan a hospital information system rollout phase by phase: tasks, timeline,
+            deliverables, data readiness, stakeholders and the people doing the work.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ol className="flex flex-col gap-2 text-sm">
-            {STEPS.map(([command, purpose], i) => (
-              <li key={command} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="text-muted-foreground">{i + 1}.</span>
-                <code className="rounded-md bg-muted px-1.5 py-0.5 text-xs">{command}</code>
-                <span className="text-muted-foreground">{purpose}</span>
-              </li>
-            ))}
-          </ol>
+          {can(access, 'projects', 'view') ? (
+            <Button asChild>
+              <Link to="/projects">Open projects</Link>
+            </Button>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Ask an administrator for access to Projects to see the implementations you belong to.
+            </p>
+          )}
         </CardContent>
       </Card>
     </>

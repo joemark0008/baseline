@@ -1,48 +1,58 @@
-# Implementation Plan: HIS Implementation Workspace UI Review
+# Implementation Plan: HIS Implementation Project Workspace
 
-**Branch**: `007-his-implementation` | **Date**: 2026-11-26 | **Spec**: `specs/007-his-implementation/spec.md`
+**Branch**: `007-his-implementation` | **Date**: 2026-11-27 | **Spec**: `specs/007-his-implementation/spec.md`
 
-**Input**: Feature specification from `/specs/007-his-implementation/spec.md`
+**Input**: Feature specification from `/specs/007-his-implementation/spec.md` (clarified 2026-11-26)
 
 ## Summary
 
-Build the first visual review increment of the HIS implementation planner: a public, clearly labeled `/preview` screen with a fictional hospital project, phase progress, Gantt-style schedule, task list, data-readiness checklist, team, and recent activity. Use the existing React frontend and static fixture data. This is an interface review slice, not completion of the full project-management feature: it does not create persisted projects, authenticate collaborators, write comments, or connect to the API/database.
-
-This front-end-first milestone is based on the user's stated goal of deploying the UI for visual review. After the UI is approved, continue the full feature with real project creation, authorization, persistence, and collaboration.
+Increment 1 (done) shipped a read-only `/preview` with fixture data. Increment 2, this plan, builds
+the product the spec describes and removes the preview: persisted implementation projects with the
+administrator-maintained nine-phase template, project membership with Manager and Member roles,
+phases, tasks with owners, dates, predecessors and overdue detection, a Gantt timeline from real
+data, task comments with @mentions, an activity history, phase deliverables and data-readiness
+tracking with links, a stakeholder directory, and email on invite, mention and assignment through
+feature 008. One NestJS feature module (`feature/projects`), one Prisma migration, one web feature
+(`feature/projects`) with file routes under `/_protected/projects`, and an admin template page.
 
 ## Technical Context
 
-**Language/Version**: TypeScript 6 / React 19; Node.js 22 for the supported runtime
+**Language/Version**: TypeScript 6 on Node.js 22; NestJS 12, React 19
 
-**Primary Dependencies**: Existing Vite 8, TanStack Router 1.x, Tailwind CSS 4, shadcn/ui, Lucide, Vitest 5, React Testing Library
+**Primary Dependencies**: Existing stack only: Prisma 7, code-first GraphQL (Apollo 4), Better Auth, Vite 8, TanStack Router, shadcn/ui, Vitest, React Testing Library, `resend` (008). No additions.
 
-**Storage**: None for the preview; deterministic in-memory fixture only
+**Storage**: PostgreSQL 16 (shared instance). New tables listed in `data-model.md`; the existing `invite` table gains two nullable columns.
 
-**Testing**: Vitest and React Testing Library (`npm test -w apps/web`)
+**Testing**: Unit specs beside services (fake Prisma via `useValue`), resolver specs, a web component suite for the timeline, task form and dialogs, and e2e specs under `apps/api/test/` against `DATABASE_URL` (run against the `baseline_dev` database).
 
-**Target Platform**: Responsive web app; static web container for review, deployable through Coolify
+**Target Platform**: The two existing containers; no new env vars.
 
-**Project Type**: Web application (existing frontend in `apps/web`; existing API in `apps/api` is not changed in this increment)
+**Project Type**: Web application (api + web)
 
-**Performance Goals**: Preview route renders without waiting for API calls and remains usable on a 375px viewport
+**Performance Goals**: `project(id)` returns a 100-task project with phases, deliverables, members and stakeholders in one query under 300 ms; the timeline renders 100 rows without layout jank and scrolls inside its own region.
 
-**Constraints**: Must not expose real patient/clinical data; keep root auth redirects/protected routes unchanged; do not add a new charting dependency; use existing UI tokens and components; no host-published ports in Coolify
+**Constraints**: Non-members get `NotFound` for any project data (no existence leak); every material change writes an activity row in the same transaction; emails never fail the mutation; no patient data fields anywhere; calendar dates are `YYYY-MM-DD` strings end to end (no time-zone shifts).
 
-**Scale/Scope**: One fictional project, nine lifecycle phases, a small representative task list, up to a dozen timeline rows
+**Scale/Scope**: Dozens of projects, hundreds of tasks per project, tens of members. No DataLoader: a project is read by one composed query.
 
 ## Constitution Check
 
-- **I. Single Responsibility**: Separate fixture/model data from the route and focused visual components. Keep each component cohesive.
-- **II. Open/Closed**: Reuse a data-driven renderer for phases/tasks; avoid a speculative plugin or generic chart abstraction.
-- **III. Liskov Substitution**: No new interface with multiple implementations is introduced in this slice.
-- **IV. Interface Segregation**: Components receive only the project data or callbacks they render/use.
-- **V. Dependency Inversion**: This public preview reads fixture data only; it does not bypass or invent service/data access rules. Future persisted behavior must go through the existing API client layer.
-- **Technology Stack**: Complies with the fixed React/Vite/Tailwind/shadcn/Vitest stack. No package additions planned.
-- **Design before code**: Frontend route and component structure are identified below. No API, resolver, Prisma migration, or generated GraphQL schema is added in this review slice.
-- **Tests**: New route/content interactions will have React Testing Library coverage; write and observe failing tests before implementation.
-- **Privacy**: The public page uses fictional data only and is labeled as a demo; no patient information is displayed or requested.
+- **I. Single Responsibility**: `ProjectAccessService` answers membership questions only; `ProjectsService` owns project, member and stakeholder lifecycle; `PhasesService`, `TasksService` and `DeliverablesService` each own one aggregate; `recordActivity` writes history; templates live in `TemplateService`. Resolvers map arguments and session identity to service calls.
+- **II. Open/Closed**: Activity kinds and statuses are enums extended by adding values; a new tab is a new route and component, not an edit of existing ones; email kinds are new template functions (008).
+- **III. Liskov Substitution**: No new interface with multiple implementations. The `EmailTransport` contract from 008 is reused unchanged.
+- **IV. Interface Segregation**: Web components receive the generated fragment types they render; services expose only the operations the resolvers call.
+- **V. Dependency Inversion**: Services inject `PrismaService`, `AccessService`, `InvitesService` and `EmailService` through Nest modules; project authorization is a service rule (`assertMember`/`assertManager`), never resolver code; the web reads `Project.can` instead of re-deriving roles.
+- **Technology Stack**: Prisma migration committed; `schema.graphql` regenerated and committed; web uses generated types; routes are file-based; UI primitives from shadcn; every new resolver is behind the global auth guard plus `@RequirePermission('projects', …)` for area-level operations and the project-role rules for the rest.
+- **Design before code**: Modules, services, resolvers, DTOs, entities, migration and routes are listed below.
+- **Tests**: Red-green per story; e2e covers persistence and the non-member denial.
 
-**Gate result**: Pass for the UI review slice. The full feature still requires explicit decisions on project membership, permissions, file uploads, and notifications before those production capabilities are planned.
+**Gate result**: Pass.
+
+## Permission model
+
+- New permission area `projects` (`feature/projects/projects.access.ts`): `view` "See and open the projects you belong to", `add` "Create implementation projects", `edit` "Edit the standard implementation template". Admin has every action; Member gets `projects:view` by default through its existing grants only if an administrator grants it (the roles grid shows the new area).
+- Inside a project, the **project role** decides: Manager tailors the plan, manages members, stakeholders and the project record; Member creates and edits tasks, deliverables and comments. Non-members are denied with `NotFound`. A project always keeps at least one Manager.
+- Project invites by email reuse `InvitesService` (feature 008 emails the link): the invite carries `projectId` and `projectRole`; accepting it adds the membership.
 
 ## Project Structure
 
@@ -51,72 +61,71 @@ This front-end-first milestone is based on the user's stated goal of deploying t
 ```text
 specs/007-his-implementation/
 ├── spec.md
-├── research.md
-├── plan.md
-├── data-model.md
-├── contracts/preview-ui.md
+├── plan.md                 # this file (increment 2)
+├── research.md             # increment 1 + 2 decisions
+├── data-model.md           # Prisma models and rules
+├── contracts/graphql.md    # GraphQL types, queries and mutations
+├── contracts/preview-ui.md # increment 1 (superseded)
 ├── quickstart.md
-└── tasks.md
+└── tasks.md                # increment 1 (done) + increment 2 phases
 ```
 
 ### Source Code
 
 ```text
-apps/web/src/routes/preview.tsx
-apps/web/src/feature/projects/preview/
-├── index.tsx
-├── index.test.tsx
-├── fixture.ts
-└── components/
-    ├── ProjectOverview.tsx
-    ├── ProjectTimeline.tsx
-    ├── ProjectTasks.tsx
-    ├── DataReadiness.tsx
-    └── TeamActivity.tsx
+apps/api/prisma/schema/projects.prisma            models + enums (data-model.md)
+apps/api/prisma/schema/invites.prisma             Invite.projectId?, Invite.projectRole?
+apps/api/prisma/migrations/<ts>_add_projects/     tables + template seed (nine phases, deliverables)
+apps/api/src/feature/projects/
+├── projects.module.ts
+├── projects.access.ts                            area "projects"
+├── project-access.service.ts (+spec)             membershipFor, assertMember, assertManager
+├── activity.ts                                   recordActivity(tx, entry)
+├── dates.ts (+spec)                              isoDate ⇄ Date, isOverdue
+├── template.service.ts (+spec)                   list/edit the standard template (Admin or projects:edit)
+├── projects.service.ts (+spec)                   create from template, list mine, get, update, members, invites, stakeholders, activity
+├── phases.service.ts (+spec)                     add, update, reorder, remove (refuses non-empty)
+├── tasks.service.ts (+spec)                      create, update, delete, list filters, comments + mentions, validation (dates, self/cycle)
+├── deliverables.service.ts (+spec)               add, update, review, remove
+├── projects.resolver.ts (+spec)                  Project queries/mutations, members, stakeholders, activity, can, summary
+├── phases.resolver.ts, tasks.resolver.ts, deliverables.resolver.ts, template.resolver.ts
+├── dto/*.input.ts, dto/*.output.ts               see contracts/graphql.md
+└── entities/*.entity.ts
+apps/api/src/feature/access/areas.ts              + projectsArea
+apps/api/src/feature/invites/                     inviteUser gains project fields; accept adds membership
+apps/api/src/email/email.templates.ts             + projectInviteEmail, taskAssignedEmail, mentionEmail
+apps/api/src/email/email.service.ts               + sendProjectInvite, sendTaskAssigned, sendMention
+apps/api/test/projects.e2e-spec.ts                persistence, denial, template copy, cycle rule
+apps/web/src/feature/projects/
+├── index.tsx                                     list + "New project" dialog
+├── operations.ts                                 all documents
+├── project/layout.tsx                            header, summary strip, tab links
+├── project/overview.tsx, timeline.tsx, tasks.tsx, readiness.tsx, team.tsx, stakeholders.tsx, activity.tsx
+├── components/                                   ProjectForm, PhaseEditor, TaskDialog, TaskDetailSheet, DeliverableDialog, MemberDialog, StakeholderDialog, Gantt, StatusBadge
+└── *.test.tsx
+apps/web/src/feature/settings/template/           admin template editor
+apps/web/src/routes/_protected/projects.tsx, projects/index.tsx, projects/$id.tsx, projects/$id/{index,timeline,tasks,readiness,team,stakeholders,activity}.tsx
+apps/web/src/routes/_protected/settings/template.tsx
+apps/web/src/lib/navigation.ts, lib/guards.ts     Projects entry, Settings › Template, route permissions, detail crumbs
+apps/web/src/routes/preview.tsx, feature/projects/preview/   removed
 ```
 
-The route tree remains generated by the existing TanStack Router plugin. Keep the existing root route, login/setup flows, and protected dashboard unchanged.
+**Structure Decision**: One feature module with several services keeps the aggregate rules together while each service stays single-purpose; one web feature folder with a layout route and tab routes mirrors it. The preview folder is deleted: its components are rewritten against generated types rather than kept as a second UI.
 
-**Structure Decision**: Add one isolated frontend feature folder and a single public preview route. Use existing UI components and tokens; do not create a new app or change the API in this increment.
+## Module wiring
 
-## Initial Review Slice
-
-The preview should make these parts legible on the first screen: implementation name and hospital, current phase and overall progress, key dates/milestone, phase timeline, upcoming/overdue work, readiness items, team roles, and recent activity. Tabs or equivalent controls may switch between Overview, Timeline, Tasks, and Data Readiness using local UI state. Any controls are demonstrative only; no edits survive a reload.
+- `ProjectsModule` imports nothing new (global Prisma, Env, Email); it injects `AccessService` (exported by `AccessModule`) and `InvitesService` (exported by `InvitesModule`), so `AppModule` imports it after those.
+- `InvitesModule` must not import `ProjectsModule` (cycle). Accepting a project invite therefore adds the membership inside `InvitesService.accept` with a small `ProjectMembershipWriter` callback registered by `ProjectsModule` on boot (`invites.setProjectJoin(fn)`), keeping `invites` unaware of project rules.
+- `AccessModule`'s area catalogue gains `projectsArea`.
 
 ## Deployment Notes
 
-- Deployed through Coolify only, following `/root/project/CLAUDE.md`: custom service
-  `baseline` (project `dev-projects`, environment `development`) running the two images
-  built on the host from `apps/api/Dockerfile` and `apps/web/Dockerfile`.
-- Single origin: nginx in the web container serves the SPA and proxies `/graphql` and `/api/` to
-  the api container. There is no separate API subdomain; `COOKIE_DOMAIN` is empty.
-- No host port is published; the proxy routes to the containers' exposed ports (80 and 3001).
-- Visual review URL: `https://baseline.joemarkgimeno.com/preview` (verified live, HTTP 200).
-  The api container and shared Postgres are present for the rest of the application, but the
-  preview route does not call them.
-- Shipping a change to the preview requires rebuilding the web image and redeploying the service
-  (see `.claude/skills/project-init/SKILL.md`, "Shipping a change").
-- No Coolify API token or other secret is written to source files or logs.
-
-## Post-Design Constitution Check
-
-Re-evaluated after Phase 1 against the code now in `apps/web/src/feature/implementation-preview/`:
-
-- The route file is a plain public file route with no loader or guard; `/`, `_protected` and the
-  auth guards are untouched (V, stack rule on anonymous routes: the route is public by design as
-  a demo page, stated in `contracts/preview-ui.md`).
-- One fixture module, one page component and five focused section components; no shared
-  abstraction beyond the fixture types (I, II, simplicity rule).
-- No API, resolver, DTO, Prisma migration or `schema.graphql` change, so the "design before
-  code" items for the backend are not applicable to this increment.
-- Tests live in `index.test.tsx` beside the feature. **Gate result**: Pass.
+- `prisma migrate deploy` runs at api start (already), so the new migration applies on the next deploy of `baseline` and on the next restart of `baseline-dev`.
+- No new env vars. Rebuild both images and redeploy `baseline`; `baseline-dev` picks the code up live.
 
 ## Complexity Tracking
 
-No new runtime dependency, API, persistence abstraction, or database schema is introduced. Two
-recorded deviations:
-
-| Deviation                                                                     | Why                                                                                                                                                   | Simpler alternative rejected                                                                                          |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `routes/preview.tsx` sits at the top level instead of under `routes/_public/` | `PublicLayout` is the centred, `max-w-sm` auth frame; the preview is a full-width workspace page that cannot render inside it                         | Nesting under `_public/` would either break the preview layout or require a second pathless layout for one demo route |
-| The fixture labels vendor team members `HISD3` rather than a fictional name   | The vendor is the product owner's own organization, so the label is not personal or clinical data; hospital, people, dates and tasks remain fictional | A made-up vendor name would make the demo less recognisable to its reviewers for no privacy gain                      |
+| Addition                                                                   | Justification                                                                                                        | Simpler alternative rejected                                                                                                     |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `ProjectMembershipWriter` callback in `InvitesService`                     | Avoids a module cycle while letting an accepted email invite join the project in the same transaction                | Polling pending project invites after sign-in (racy, second round trip); importing `ProjectsModule` into `InvitesModule` (cycle) |
+| Composed `project(id)` read instead of per-field resolvers with DataLoader | One project is read at a time; a single composed query keeps the resolver thin and avoids N+1 without a loader layer | Field resolvers for phases/tasks/deliverables (N+1 for 100 tasks)                                                                |

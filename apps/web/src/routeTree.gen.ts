@@ -12,16 +12,26 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as PublicRouteImport } from './routes/_public'
-import { Route as PreviewRouteImport } from './routes/preview'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
+import { Route as ProtectedProjectsRouteImport } from './routes/_protected/projects'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as PublicInviteRouteImport } from './routes/_public/invite'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
 import { Route as PublicResetPasswordRouteImport } from './routes/_public/reset-password'
 import { Route as PublicSetupRouteImport } from './routes/_public/setup'
 import { Route as ProtectedAdminUsersRouteImport } from './routes/_protected/admin/users'
+import { Route as ProtectedProjectsIndexRouteImport } from './routes/_protected/projects/index'
+import { Route as ProtectedProjectsIdRouteImport } from './routes/_protected/projects/$id'
 import { Route as ProtectedSettingsIndexRouteImport } from './routes/_protected/settings/index'
+import { Route as ProtectedSettingsTemplateRouteImport } from './routes/_protected/settings/template'
 import { Route as PublicAuthCallbackRouteImport } from './routes/_public/auth.callback'
+import { Route as ProtectedProjectsIdIndexRouteImport } from './routes/_protected/projects/$id/index'
+import { Route as ProtectedProjectsIdActivityRouteImport } from './routes/_protected/projects/$id/activity'
+import { Route as ProtectedProjectsIdReadinessRouteImport } from './routes/_protected/projects/$id/readiness'
+import { Route as ProtectedProjectsIdStakeholdersRouteImport } from './routes/_protected/projects/$id/stakeholders'
+import { Route as ProtectedProjectsIdTasksRouteImport } from './routes/_protected/projects/$id/tasks'
+import { Route as ProtectedProjectsIdTeamRouteImport } from './routes/_protected/projects/$id/team'
+import { Route as ProtectedProjectsIdTimelineRouteImport } from './routes/_protected/projects/$id/timeline'
 import { Route as ProtectedSettingsRolesIndexRouteImport } from './routes/_protected/settings/roles.index'
 import { Route as ProtectedSettingsRolesIdRouteImport } from './routes/_protected/settings/roles.$id'
 import { Route as ProtectedSettingsRolesHistoryRouteImport } from './routes/_protected/settings/roles.history'
@@ -40,14 +50,14 @@ const PublicRoute = PublicRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PreviewRoute = PreviewRouteImport.update({
-  id: '/preview',
-  path: '/preview',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedProjectsRoute = ProtectedProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
@@ -80,16 +90,73 @@ const ProtectedAdminUsersRoute = ProtectedAdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedProjectsIndexRoute = ProtectedProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProtectedProjectsRoute,
+} as any)
+const ProtectedProjectsIdRoute = ProtectedProjectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProtectedProjectsRoute,
+} as any)
 const ProtectedSettingsIndexRoute = ProtectedSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProtectedSettingsRoute,
 } as any)
+const ProtectedSettingsTemplateRoute =
+  ProtectedSettingsTemplateRouteImport.update({
+    id: '/template',
+    path: '/template',
+    getParentRoute: () => ProtectedSettingsRoute,
+  } as any)
 const PublicAuthCallbackRoute = PublicAuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
   getParentRoute: () => PublicRoute,
 } as any)
+const ProtectedProjectsIdIndexRoute =
+  ProtectedProjectsIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedProjectsIdRoute,
+  } as any)
+const ProtectedProjectsIdActivityRoute =
+  ProtectedProjectsIdActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => ProtectedProjectsIdRoute,
+  } as any)
+const ProtectedProjectsIdReadinessRoute =
+  ProtectedProjectsIdReadinessRouteImport.update({
+    id: '/readiness',
+    path: '/readiness',
+    getParentRoute: () => ProtectedProjectsIdRoute,
+  } as any)
+const ProtectedProjectsIdStakeholdersRoute =
+  ProtectedProjectsIdStakeholdersRouteImport.update({
+    id: '/stakeholders',
+    path: '/stakeholders',
+    getParentRoute: () => ProtectedProjectsIdRoute,
+  } as any)
+const ProtectedProjectsIdTasksRoute =
+  ProtectedProjectsIdTasksRouteImport.update({
+    id: '/tasks',
+    path: '/tasks',
+    getParentRoute: () => ProtectedProjectsIdRoute,
+  } as any)
+const ProtectedProjectsIdTeamRoute = ProtectedProjectsIdTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => ProtectedProjectsIdRoute,
+} as any)
+const ProtectedProjectsIdTimelineRoute =
+  ProtectedProjectsIdTimelineRouteImport.update({
+    id: '/timeline',
+    path: '/timeline',
+    getParentRoute: () => ProtectedProjectsIdRoute,
+  } as any)
 const ProtectedSettingsRolesIndexRoute =
   ProtectedSettingsRolesIndexRouteImport.update({
     id: '/roles/',
@@ -117,35 +184,53 @@ const ProtectedSettingsRolesNewRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/preview': typeof PreviewRoute
   '/dashboard': typeof ProtectedDashboardRoute
+  '/projects': typeof ProtectedProjectsRouteWithChildren
   '/settings': typeof ProtectedSettingsRouteWithChildren
   '/invite': typeof PublicInviteRoute
   '/login': typeof PublicLoginRoute
   '/reset-password': typeof PublicResetPasswordRoute
   '/setup': typeof PublicSetupRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
+  '/projects/$id': typeof ProtectedProjectsIdRouteWithChildren
+  '/settings/template': typeof ProtectedSettingsTemplateRoute
   '/auth/callback': typeof PublicAuthCallbackRoute
+  '/projects/': typeof ProtectedProjectsIndexRoute
   '/settings/': typeof ProtectedSettingsIndexRoute
+  '/projects/$id/activity': typeof ProtectedProjectsIdActivityRoute
+  '/projects/$id/readiness': typeof ProtectedProjectsIdReadinessRoute
+  '/projects/$id/stakeholders': typeof ProtectedProjectsIdStakeholdersRoute
+  '/projects/$id/tasks': typeof ProtectedProjectsIdTasksRoute
+  '/projects/$id/team': typeof ProtectedProjectsIdTeamRoute
+  '/projects/$id/timeline': typeof ProtectedProjectsIdTimelineRoute
   '/settings/roles/$id': typeof ProtectedSettingsRolesIdRoute
   '/settings/roles/history': typeof ProtectedSettingsRolesHistoryRoute
   '/settings/roles/new': typeof ProtectedSettingsRolesNewRoute
+  '/projects/$id/': typeof ProtectedProjectsIdIndexRoute
   '/settings/roles/': typeof ProtectedSettingsRolesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/preview': typeof PreviewRoute
   '/dashboard': typeof ProtectedDashboardRoute
   '/invite': typeof PublicInviteRoute
   '/login': typeof PublicLoginRoute
   '/reset-password': typeof PublicResetPasswordRoute
   '/setup': typeof PublicSetupRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
+  '/settings/template': typeof ProtectedSettingsTemplateRoute
   '/auth/callback': typeof PublicAuthCallbackRoute
+  '/projects': typeof ProtectedProjectsIndexRoute
   '/settings': typeof ProtectedSettingsIndexRoute
+  '/projects/$id/activity': typeof ProtectedProjectsIdActivityRoute
+  '/projects/$id/readiness': typeof ProtectedProjectsIdReadinessRoute
+  '/projects/$id/stakeholders': typeof ProtectedProjectsIdStakeholdersRoute
+  '/projects/$id/tasks': typeof ProtectedProjectsIdTasksRoute
+  '/projects/$id/team': typeof ProtectedProjectsIdTeamRoute
+  '/projects/$id/timeline': typeof ProtectedProjectsIdTimelineRoute
   '/settings/roles/$id': typeof ProtectedSettingsRolesIdRoute
   '/settings/roles/history': typeof ProtectedSettingsRolesHistoryRoute
   '/settings/roles/new': typeof ProtectedSettingsRolesNewRoute
+  '/projects/$id': typeof ProtectedProjectsIdIndexRoute
   '/settings/roles': typeof ProtectedSettingsRolesIndexRoute
 }
 export interface FileRoutesById {
@@ -153,73 +238,111 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
-  '/preview': typeof PreviewRoute
   '/_protected/dashboard': typeof ProtectedDashboardRoute
+  '/_protected/projects': typeof ProtectedProjectsRouteWithChildren
   '/_protected/settings': typeof ProtectedSettingsRouteWithChildren
   '/_public/invite': typeof PublicInviteRoute
   '/_public/login': typeof PublicLoginRoute
   '/_public/reset-password': typeof PublicResetPasswordRoute
   '/_public/setup': typeof PublicSetupRoute
   '/_protected/admin/users': typeof ProtectedAdminUsersRoute
+  '/_protected/projects/$id': typeof ProtectedProjectsIdRouteWithChildren
+  '/_protected/settings/template': typeof ProtectedSettingsTemplateRoute
   '/_public/auth/callback': typeof PublicAuthCallbackRoute
+  '/_protected/projects/': typeof ProtectedProjectsIndexRoute
   '/_protected/settings/': typeof ProtectedSettingsIndexRoute
+  '/_protected/projects/$id/activity': typeof ProtectedProjectsIdActivityRoute
+  '/_protected/projects/$id/readiness': typeof ProtectedProjectsIdReadinessRoute
+  '/_protected/projects/$id/stakeholders': typeof ProtectedProjectsIdStakeholdersRoute
+  '/_protected/projects/$id/tasks': typeof ProtectedProjectsIdTasksRoute
+  '/_protected/projects/$id/team': typeof ProtectedProjectsIdTeamRoute
+  '/_protected/projects/$id/timeline': typeof ProtectedProjectsIdTimelineRoute
   '/_protected/settings/roles/$id': typeof ProtectedSettingsRolesIdRoute
   '/_protected/settings/roles/history': typeof ProtectedSettingsRolesHistoryRoute
   '/_protected/settings/roles/new': typeof ProtectedSettingsRolesNewRoute
+  '/_protected/projects/$id/': typeof ProtectedProjectsIdIndexRoute
   '/_protected/settings/roles/': typeof ProtectedSettingsRolesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/preview'
     | '/dashboard'
+    | '/projects'
     | '/settings'
     | '/invite'
     | '/login'
     | '/reset-password'
     | '/setup'
     | '/admin/users'
+    | '/projects/$id'
+    | '/settings/template'
     | '/auth/callback'
+    | '/projects/'
     | '/settings/'
+    | '/projects/$id/activity'
+    | '/projects/$id/readiness'
+    | '/projects/$id/stakeholders'
+    | '/projects/$id/tasks'
+    | '/projects/$id/team'
+    | '/projects/$id/timeline'
     | '/settings/roles/$id'
     | '/settings/roles/history'
     | '/settings/roles/new'
+    | '/projects/$id/'
     | '/settings/roles/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/preview'
     | '/dashboard'
     | '/invite'
     | '/login'
     | '/reset-password'
     | '/setup'
     | '/admin/users'
+    | '/settings/template'
     | '/auth/callback'
+    | '/projects'
     | '/settings'
+    | '/projects/$id/activity'
+    | '/projects/$id/readiness'
+    | '/projects/$id/stakeholders'
+    | '/projects/$id/tasks'
+    | '/projects/$id/team'
+    | '/projects/$id/timeline'
     | '/settings/roles/$id'
     | '/settings/roles/history'
     | '/settings/roles/new'
+    | '/projects/$id'
     | '/settings/roles'
   id:
     | '__root__'
     | '/'
     | '/_protected'
     | '/_public'
-    | '/preview'
     | '/_protected/dashboard'
+    | '/_protected/projects'
     | '/_protected/settings'
     | '/_public/invite'
     | '/_public/login'
     | '/_public/reset-password'
     | '/_public/setup'
     | '/_protected/admin/users'
+    | '/_protected/projects/$id'
+    | '/_protected/settings/template'
     | '/_public/auth/callback'
+    | '/_protected/projects/'
     | '/_protected/settings/'
+    | '/_protected/projects/$id/activity'
+    | '/_protected/projects/$id/readiness'
+    | '/_protected/projects/$id/stakeholders'
+    | '/_protected/projects/$id/tasks'
+    | '/_protected/projects/$id/team'
+    | '/_protected/projects/$id/timeline'
     | '/_protected/settings/roles/$id'
     | '/_protected/settings/roles/history'
     | '/_protected/settings/roles/new'
+    | '/_protected/projects/$id/'
     | '/_protected/settings/roles/'
   fileRoutesById: FileRoutesById
 }
@@ -227,7 +350,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
-  PreviewRoute: typeof PreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -253,18 +375,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/preview': {
-      id: '/preview'
-      path: '/preview'
-      fullPath: '/preview'
-      preLoaderRoute: typeof PreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_protected/dashboard': {
       id: '/_protected/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof ProtectedDashboardRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/projects': {
+      id: '/_protected/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProtectedProjectsRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/_protected/settings': {
@@ -309,11 +431,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedAdminUsersRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/projects/': {
+      id: '/_protected/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProtectedProjectsIndexRouteImport
+      parentRoute: typeof ProtectedProjectsRoute
+    }
+    '/_protected/projects/$id': {
+      id: '/_protected/projects/$id'
+      path: '/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof ProtectedProjectsIdRouteImport
+      parentRoute: typeof ProtectedProjectsRoute
+    }
     '/_protected/settings/': {
       id: '/_protected/settings/'
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof ProtectedSettingsIndexRouteImport
+      parentRoute: typeof ProtectedSettingsRoute
+    }
+    '/_protected/settings/template': {
+      id: '/_protected/settings/template'
+      path: '/template'
+      fullPath: '/settings/template'
+      preLoaderRoute: typeof ProtectedSettingsTemplateRouteImport
       parentRoute: typeof ProtectedSettingsRoute
     }
     '/_public/auth/callback': {
@@ -322,6 +465,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/callback'
       preLoaderRoute: typeof PublicAuthCallbackRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_protected/projects/$id/': {
+      id: '/_protected/projects/$id/'
+      path: '/'
+      fullPath: '/projects/$id/'
+      preLoaderRoute: typeof ProtectedProjectsIdIndexRouteImport
+      parentRoute: typeof ProtectedProjectsIdRoute
+    }
+    '/_protected/projects/$id/activity': {
+      id: '/_protected/projects/$id/activity'
+      path: '/activity'
+      fullPath: '/projects/$id/activity'
+      preLoaderRoute: typeof ProtectedProjectsIdActivityRouteImport
+      parentRoute: typeof ProtectedProjectsIdRoute
+    }
+    '/_protected/projects/$id/readiness': {
+      id: '/_protected/projects/$id/readiness'
+      path: '/readiness'
+      fullPath: '/projects/$id/readiness'
+      preLoaderRoute: typeof ProtectedProjectsIdReadinessRouteImport
+      parentRoute: typeof ProtectedProjectsIdRoute
+    }
+    '/_protected/projects/$id/stakeholders': {
+      id: '/_protected/projects/$id/stakeholders'
+      path: '/stakeholders'
+      fullPath: '/projects/$id/stakeholders'
+      preLoaderRoute: typeof ProtectedProjectsIdStakeholdersRouteImport
+      parentRoute: typeof ProtectedProjectsIdRoute
+    }
+    '/_protected/projects/$id/tasks': {
+      id: '/_protected/projects/$id/tasks'
+      path: '/tasks'
+      fullPath: '/projects/$id/tasks'
+      preLoaderRoute: typeof ProtectedProjectsIdTasksRouteImport
+      parentRoute: typeof ProtectedProjectsIdRoute
+    }
+    '/_protected/projects/$id/team': {
+      id: '/_protected/projects/$id/team'
+      path: '/team'
+      fullPath: '/projects/$id/team'
+      preLoaderRoute: typeof ProtectedProjectsIdTeamRouteImport
+      parentRoute: typeof ProtectedProjectsIdRoute
+    }
+    '/_protected/projects/$id/timeline': {
+      id: '/_protected/projects/$id/timeline'
+      path: '/timeline'
+      fullPath: '/projects/$id/timeline'
+      preLoaderRoute: typeof ProtectedProjectsIdTimelineRouteImport
+      parentRoute: typeof ProtectedProjectsIdRoute
     }
     '/_protected/settings/roles/': {
       id: '/_protected/settings/roles/'
@@ -354,7 +546,44 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ProtectedProjectsIdRouteChildren {
+  ProtectedProjectsIdActivityRoute: typeof ProtectedProjectsIdActivityRoute
+  ProtectedProjectsIdReadinessRoute: typeof ProtectedProjectsIdReadinessRoute
+  ProtectedProjectsIdStakeholdersRoute: typeof ProtectedProjectsIdStakeholdersRoute
+  ProtectedProjectsIdTasksRoute: typeof ProtectedProjectsIdTasksRoute
+  ProtectedProjectsIdTeamRoute: typeof ProtectedProjectsIdTeamRoute
+  ProtectedProjectsIdTimelineRoute: typeof ProtectedProjectsIdTimelineRoute
+  ProtectedProjectsIdIndexRoute: typeof ProtectedProjectsIdIndexRoute
+}
+
+const ProtectedProjectsIdRouteChildren: ProtectedProjectsIdRouteChildren = {
+  ProtectedProjectsIdActivityRoute: ProtectedProjectsIdActivityRoute,
+  ProtectedProjectsIdReadinessRoute: ProtectedProjectsIdReadinessRoute,
+  ProtectedProjectsIdStakeholdersRoute: ProtectedProjectsIdStakeholdersRoute,
+  ProtectedProjectsIdTasksRoute: ProtectedProjectsIdTasksRoute,
+  ProtectedProjectsIdTeamRoute: ProtectedProjectsIdTeamRoute,
+  ProtectedProjectsIdTimelineRoute: ProtectedProjectsIdTimelineRoute,
+  ProtectedProjectsIdIndexRoute: ProtectedProjectsIdIndexRoute,
+}
+
+const ProtectedProjectsIdRouteWithChildren =
+  ProtectedProjectsIdRoute._addFileChildren(ProtectedProjectsIdRouteChildren)
+
+interface ProtectedProjectsRouteChildren {
+  ProtectedProjectsIdRoute: typeof ProtectedProjectsIdRouteWithChildren
+  ProtectedProjectsIndexRoute: typeof ProtectedProjectsIndexRoute
+}
+
+const ProtectedProjectsRouteChildren: ProtectedProjectsRouteChildren = {
+  ProtectedProjectsIdRoute: ProtectedProjectsIdRouteWithChildren,
+  ProtectedProjectsIndexRoute: ProtectedProjectsIndexRoute,
+}
+
+const ProtectedProjectsRouteWithChildren =
+  ProtectedProjectsRoute._addFileChildren(ProtectedProjectsRouteChildren)
+
 interface ProtectedSettingsRouteChildren {
+  ProtectedSettingsTemplateRoute: typeof ProtectedSettingsTemplateRoute
   ProtectedSettingsIndexRoute: typeof ProtectedSettingsIndexRoute
   ProtectedSettingsRolesIdRoute: typeof ProtectedSettingsRolesIdRoute
   ProtectedSettingsRolesHistoryRoute: typeof ProtectedSettingsRolesHistoryRoute
@@ -363,6 +592,7 @@ interface ProtectedSettingsRouteChildren {
 }
 
 const ProtectedSettingsRouteChildren: ProtectedSettingsRouteChildren = {
+  ProtectedSettingsTemplateRoute: ProtectedSettingsTemplateRoute,
   ProtectedSettingsIndexRoute: ProtectedSettingsIndexRoute,
   ProtectedSettingsRolesIdRoute: ProtectedSettingsRolesIdRoute,
   ProtectedSettingsRolesHistoryRoute: ProtectedSettingsRolesHistoryRoute,
@@ -375,12 +605,14 @@ const ProtectedSettingsRouteWithChildren =
 
 interface ProtectedRouteChildren {
   ProtectedDashboardRoute: typeof ProtectedDashboardRoute
+  ProtectedProjectsRoute: typeof ProtectedProjectsRouteWithChildren
   ProtectedSettingsRoute: typeof ProtectedSettingsRouteWithChildren
   ProtectedAdminUsersRoute: typeof ProtectedAdminUsersRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedDashboardRoute: ProtectedDashboardRoute,
+  ProtectedProjectsRoute: ProtectedProjectsRouteWithChildren,
   ProtectedSettingsRoute: ProtectedSettingsRouteWithChildren,
   ProtectedAdminUsersRoute: ProtectedAdminUsersRoute,
 }
@@ -412,7 +644,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
-  PreviewRoute: PreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

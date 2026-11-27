@@ -1,0 +1,273 @@
+// HIS implementation project workspace (feature 007, increment 2). See specs/007-his-implementation/data-model.md.
+// Calendar dates are @db.Date here and YYYY-MM-DD strings in GraphQL.
+
+enum ProjectRole {
+  MANAGER
+  MEMBER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETE
+}
+
+enum PhaseStatus {
+  UPCOMING
+  IN_PROGRESS
+  AT_RISK
+  COMPLETE
+}
+
+enum TaskStatus {
+  UPCOMING
+  IN_PROGRESS
+  BLOCKED
+  COMPLETE
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum DeliverableKind {
+  OUTPUT
+  DATA_CATEGORY
+}
+
+enum DeliverableStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  IN_REVIEW
+  READY
+}
+
+enum ReviewOutcome {
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+enum ProjectActivityKind {
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  PHASE_ADDED
+  PHASE_UPDATED
+  PHASE_REMOVED
+  PHASES_REORDERED
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_DELETED
+  COMMENT_ADDED
+  MEMBER_ADDED
+  MEMBER_INVITED
+  MEMBER_ROLE_CHANGED
+  MEMBER_REMOVED
+  DELIVERABLE_ADDED
+  DELIVERABLE_UPDATED
+  DELIVERABLE_REVIEWED
+  DELIVERABLE_REMOVED
+  STAKEHOLDER_ADDED
+  STAKEHOLDER_UPDATED
+  STAKEHOLDER_REMOVED
+}
+
+/// The administrator-maintained standard lifecycle, copied into each new project.
+model TemplatePhase {
+  id           String                @id @default(cuid())
+  name         String
+  description  String?
+  order        Int
+  deliverables TemplateDeliverable[]
+  phases       ProjectPhase[]
+
+  @@unique([order])
+  @@map("template_phase")
+}
+
+model TemplateDeliverable {
+  id              String                @id @default(cuid())
+  templatePhaseId String
+  templatePhase   TemplatePhase         @relation(fields: [templatePhaseId], references: [id], onDelete: Cascade)
+  title           String
+  kind            DeliverableKind       @default(OUTPUT)
+  order           Int
+  deliverables    ProjectDeliverable[]
+
+  @@index([templatePhaseId, order])
+  @@map("template_deliverable")
+}
+
+model Project {
+  id                String               @id @default(cuid())
+  name              String
+  hospitalName      String
+  description       String?
+  status            ProjectStatus        @default(ACTIVE)
+  startDate         DateTime?            @db.Date
+  targetGoLiveDate  DateTime?            @db.Date
+  createdById       String
+  createdBy         User                 @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  members           ProjectMember[]
+  phases            ProjectPhase[]
+  tasks             ProjectTask[]
+  deliverables      ProjectDeliverable[]
+  stakeholders      ProjectStakeholder[]
+  activity          ProjectActivity[]
+  invites           Invite[]
+
+  @@index([updatedAt(sort: Desc)])
+  @@map("project")
+}
+
+model ProjectMember {
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation("ProjectMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  role      ProjectRole @default(MEMBER)
+  addedAt   DateTime    @default(now())
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_member")
+}
+
+model ProjectPhase {
+  id              String               @id @default(cuid())
+  projectId       String
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  order           Int
+  ownerId         String?
+  owner           User?                @relation("ProjectPhaseOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  startDate       DateTime?            @db.Date
+  endDate         DateTime?            @db.Date
+  status          PhaseStatus          @default(UPCOMING)
+  templatePhaseId String?
+  templatePhase   TemplatePhase?       @relation(fields: [templatePhaseId], references: [id], onDelete: SetNull)
+  tasks           ProjectTask[]
+  deliverables    ProjectDeliverable[]
+
+  @@index([projectId, order])
+  @@map("project_phase")
+}
+
+model ProjectTask {
+  id            String        @id @default(cuid())
+  projectId     String
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phaseId       String
+  phase         ProjectPhase  @relation(fields: [phaseId], references: [id], onDelete: Restrict)
+  title         String
+  description   String?
+  ownerId       String?
+  owner         User?         @relation("ProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  status        TaskStatus    @default(UPCOMING)
+  priority      TaskPriority  @default(MEDIUM)
+  startDate     DateTime?     @db.Date
+  dueDate       DateTime?     @db.Date
+  predecessorId String?
+  predecessor   ProjectTask?  @relation("TaskPredecessor", fields: [predecessorId], references: [id], onDelete: SetNull)
+  successors    ProjectTask[] @relation("TaskPredecessor")
+  createdById   String
+  createdBy     User          @relation("ProjectTaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  comments      TaskComment[]
+
+  @@index([projectId, phaseId])
+  @@index([projectId, dueDate])
+  @@map("project_task")
+}
+
+model TaskComment {
+  id        String               @id @default(cuid())
+  taskId    String
+  task      ProjectTask          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User                 @relation("TaskCommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  body      String
+  createdAt DateTime             @default(now())
+  mentions  TaskCommentMention[]
+
+  @@index([taskId, createdAt])
+  @@map("task_comment")
+}
+
+model TaskCommentMention {
+  commentId String
+  comment   TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation("TaskCommentMentionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@map("task_comment_mention")
+}
+
+model ProjectDeliverable {
+  id                    String               @id @default(cuid())
+  projectId             String
+  project               Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phaseId               String
+  phase                 ProjectPhase         @relation(fields: [phaseId], references: [id], onDelete: Restrict)
+  title                 String
+  kind                  DeliverableKind      @default(OUTPUT)
+  ownerId               String?
+  owner                 User?                @relation("ProjectDeliverableOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  reviewerId            String?
+  reviewer              User?                @relation("ProjectDeliverableReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  dueDate               DateTime?            @db.Date
+  status                DeliverableStatus    @default(NOT_STARTED)
+  reviewOutcome         ReviewOutcome?
+  reviewNote            String?
+  reviewedAt            DateTime?
+  /// [{ label, url }] (≤ 20); documents stay outside the planner (feature 007 clarification Q4).
+  links                 Json                 @default("[]")
+  order                 Int
+  templateDeliverableId String?
+  templateDeliverable   TemplateDeliverable? @relation(fields: [templateDeliverableId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, phaseId, order])
+  @@map("project_deliverable")
+}
+
+/// A hospital or vendor contact. Linking a user does not make them a member.
+model ProjectStakeholder {
+  id           String  @id @default(cuid())
+  projectId    String
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name         String
+  organization String
+  role         String
+  email        String?
+  phone        String?
+  userId       String?
+  user         User?   @relation("ProjectStakeholderUser", fields: [userId], references: [id], onDelete: SetNull)
+  notes        String?
+
+  @@index([projectId])
+  @@map("project_stakeholder")
+}
+
+/// Who changed what and when; written in the same transaction as the change (FR-013).
+model ProjectActivity {
+  id         String              @id @default(cuid())
+  projectId  String
+  project    Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?               @relation("ProjectActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  kind       ProjectActivityKind
+  targetType String?
+  targetId   String?
+  summary    String
+  details    Json?
+  createdAt  DateTime            @default(now())
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("project_activity")
+}

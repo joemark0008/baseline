@@ -2,7 +2,7 @@ import { ACCESS_AREAS, assertUniqueKeys, findArea } from './areas.js'
 
 describe('access areas catalogue', () => {
   it('contains the initial areas in order', () => {
-    expect(ACCESS_AREAS.map((a) => a.key)).toEqual(['users', 'invites', 'roles'])
+    expect(ACCESS_AREAS.map((a) => a.key)).toEqual(['users', 'invites', 'roles', 'projects'])
   })
 
   it('finds an area by key', () => {

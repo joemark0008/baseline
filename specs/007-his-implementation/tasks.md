@@ -157,3 +157,74 @@ description: 'Executable tasks for the first HIS implementation UI review slice'
 - [x] T030 Add keyboard and responsive assertions (view switching by keyboard, focusable scrolling timeline, pressed state on filters) to `apps/web/src/feature/projects/preview/index.test.tsx` per T020 (partial)
 - [x] T031 Record the top-level `routes/preview.tsx` placement as a justified deviation from the `routes/_public/` rule in `plan.md` Complexity Tracking, or move the route, per Constitution: Frontend routing (contradicts)
 - [x] T032 Review the `HISD3` organization label in the fixture against research D3 (fictional labels); keep with a recorded justification or replace with a neutral vendor label (contradicts)
+
+---
+
+# Increment 2: the real product (plan.md 2026-11-27)
+
+Phases 1–7 above delivered and converged the `/preview` slice. The phases below build the persisted
+product and remove the preview. Tests first in every phase.
+
+## Phase 8: Setup - schema, permissions, email
+
+- [x] T033 Write `apps/api/prisma/schema/projects.prisma` (enums and models from `data-model.md`), extend `invites.prisma` with `projectId?` and `projectRole?`, add the back-relations on `User`, and create the migration `add_projects` whose SQL also seeds the nine template phases and their suggested deliverables.
+- [x] T034 [P] Add `projectsArea` (`view`, `add`, `edit`) in `apps/api/src/feature/projects/projects.access.ts` and register it in `apps/api/src/feature/access/areas.ts`; cover the catalogue in the existing areas spec.
+- [x] T035 [P] Add `projectInviteEmail`, `taskAssignedEmail` and `mentionEmail` to `apps/api/src/email/email.templates.ts` and `sendProjectInvite`, `sendTaskAssigned`, `sendMention` to `email.service.ts`, tests first in the existing specs.
+- [x] T036 [P] Write `apps/api/src/feature/projects/dates.ts` (`toIsoDate`, `fromIsoDate`, `isOverdue`, `assertDateOrder`) with `dates.spec.ts` first.
+
+## Phase 9: Foundational - access and activity (blocks every story)
+
+- [x] T037 Write `project-access.service.spec.ts` (membershipFor, assertMember → NotFound, assertManager → Forbidden, listIdsFor) then `project-access.service.ts`.
+- [x] T038 [P] Write `activity.ts` (`recordActivity(tx, entry)`) and the `ProjectActivity` entity/page DTO.
+- [x] T039 Write `template.service.spec.ts` (ordered list; add/update/remove/reorder phases; add/remove deliverables; `projects:edit` only) then `template.service.ts`, `template.resolver.ts`, DTOs and entities.
+
+## Phase 10: User Story 1 - Create and tailor a project (Priority: P1) 🎯 MVP
+
+- [x] T040 [US1] Write `projects.service.spec.ts` for create-from-template (nine phases in order, deliverables copied, creator Manager, activity), list mine, get (NotFound for non-member), update (date order rule), then implement `projects.service.ts` for those operations.
+- [x] T041 [US1] Write `phases.service.spec.ts` (add, update with date rule, reorder, remove refuses non-empty, Manager only) then `phases.service.ts`.
+- [x] T042 [US1] Entities (`Project`, `ProjectListItem`, `ProjectPhase`, `PersonSummary`, `ProjectSummary`, `ProjectCapabilities`), DTOs (`CreateProjectInput`, `UpdateProjectInput`, `AddPhaseInput`, `UpdatePhaseInput`), `projects.resolver.ts` and `phases.resolver.ts` with resolver specs; `projects.module.ts` wired into `app.module.ts`; `npm run schema:generate`.
+- [x] T043 [US1] Web: `operations.ts` (project list, project, create/update project, phase mutations), `npm run codegen -w apps/web`; routes `/_protected/projects` (list) and `/_protected/projects/$id` (layout with tabs) and `/_protected/projects/$id/index` (overview); `feature/projects/index.tsx` list page with New project dialog; `project/layout.tsx` with header, summary strip and tab links; `project/overview.tsx` with the phase list, inline phase editing, reorder and add; navigation entry, guard rules and detail crumbs; component tests for the project form and phase editor first.
+- [x] T044 [US1] e2e `apps/api/test/projects.e2e-spec.ts`: create → nine phases persisted; tailor → persists after re-read; non-member → NotFound.
+
+**Checkpoint**: A manager creates a project, sees the nine phases, tailors them, and it persists.
+
+## Phase 11: User Story 2 - Tasks and the timeline (Priority: P1)
+
+- [x] T045 [US2] Write `tasks.service.spec.ts` (create/update/delete; date rule; self-dependency and cycle refusal; same-project predecessor; overdue derivation; filters by phase/owner/status/overdue; assignment email on owner change) then `tasks.service.ts`.
+- [x] T046 [US2] Entities (`ProjectTask`, `TaskRef`), DTOs (`CreateTaskInput`, `UpdateTaskInput`, `TaskFilterArgs`), `tasks.resolver.ts` + spec; schema regenerated.
+- [x] T047 [US2] Web: task operations + codegen; `project/tasks.tsx` (filter bar, table with owner/phase/due/priority/status/overdue, New task), `components/TaskDialog.tsx` (create/edit with validation messages from the API), tests first.
+- [x] T048 [US2] Web: `project/timeline.tsx` + `components/Gantt.tsx` from real phases and tasks (window derived from dates, phase bars, task markers/bars, dependency cue, overdue style, internal scroll), tests first.
+- [x] T049 [US2] e2e: task with past due date reads back `overdue: true`; cycle refused; dependency visible on both tasks.
+
+## Phase 12: User Story 3 - Collaboration and access (Priority: P1)
+
+- [x] T050 [US3] Members: `projects.service.spec.ts` additions (add existing user, set role, remove, last-Manager rule, invite by email through `InvitesService` with project fields + email, pending invites) then implementation; `InvitesService.accept` joins the project through the registered writer, tests first.
+- [x] T051 [US3] Comments: `tasks.service.spec.ts` additions (add comment, mentions must be members, mention emails) then implementation; `TaskComment` entity, `addTaskComment` mutation; task `comments` in the composed read.
+- [x] T052 [US3] Activity query (`projectActivity`, paged) in `projects.resolver.ts`; every mutation of phases 10–13 records activity (spec assertions on the fake tx).
+- [x] T053 [US3] Web: `project/team.tsx` (members table, Add member dialog with candidate search, Invite by email, role change, remove with confirm), `components/TaskDetailSheet.tsx` (task fields, comments with @mention picker), `project/activity.tsx`; tests first.
+- [x] T054 [US3] e2e: member sees project, non-member denied; comment attributed; activity records the change.
+
+## Phase 13: User Story 4 - Deliverables and data readiness (Priority: P2)
+
+- [x] T055 [US4] Write `deliverables.service.spec.ts` (add/update/review/remove; links ≤ 20; review by reviewer or Manager; activity) then `deliverables.service.ts`, entities, DTOs, `deliverables.resolver.ts`.
+- [x] T056 [US4] Web: `project/readiness.tsx` grouped by phase with status/owner/reviewer/due/links and review outcome; `components/DeliverableDialog.tsx`; tests first.
+
+## Phase 14: User Story 5 - Stakeholders (Priority: P3)
+
+- [x] T057 [US5] Stakeholder CRUD in `projects.service.ts` (spec first), entity, DTOs, resolver mutations; web `project/stakeholders.tsx` + `components/StakeholderDialog.tsx`; "Record as task" shortcut from a stakeholder row opens the task dialog with the phase preselected (FR-019).
+
+## Phase 15: Template administration and cleanup
+
+- [x] T058 Web: `feature/settings/template/index.tsx` (edit phases and suggested deliverables; `projects:edit`), route `/_protected/settings/template`, navigation item under Settings, guard rule; tests first.
+- [x] T059 Remove `apps/web/src/routes/preview.tsx` and `apps/web/src/feature/projects/preview/`; update `plan.md` structure already reflects it; make Dashboard link to Projects.
+- [x] T060 Privacy boundary (FR-020, FR-021): the project create dialog and the readiness tab state that the planner coordinates an implementation and holds no patient records.
+
+## Phase 16: Verification and deploy
+
+- [x] T061 `npm test -w apps/api`, `npm run test:e2e -w apps/api` against `baseline_dev`, `npm run schema:check`, `npm run codegen -w apps/web`, `npm test -w apps/web -- --run`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run build`.
+- [x] T062 UI checklist (`.claude/skills/ui-design/references/checklist.md`) on every new screen; record non-applicable items.
+- [ ] T063 Rebuild both images, redeploy `baseline`, confirm migration applied and `/projects` live; `baseline-dev` restarts on its own.
+
+## Dependencies
+
+- Phase 8 and 9 before any story. US1 before US2 and US3 (they need projects and phases). US4 and US5 after US1. Phase 15 after all stories. Phase 16 last.

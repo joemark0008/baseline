@@ -1,6 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { APP_ENV, type AppEnv } from '../config/env.js'
-import { inviteEmail, passwordResetEmail, type RenderedEmail } from './email.templates.js'
+import {
+  inviteEmail,
+  mentionEmail,
+  passwordResetEmail,
+  projectInviteEmail,
+  taskAssignedEmail,
+  type RenderedEmail,
+} from './email.templates.js'
 import { EMAIL_TRANSPORT, type EmailTransport } from './email.transport.js'
 
 /** Shown in subjects and bodies. */
@@ -44,6 +51,57 @@ export class EmailService {
       input.to,
       `password-reset/${input.userId}/${input.expiresAt.getTime()}`,
       passwordResetEmail({ productName: PRODUCT_NAME, ...input }),
+    )
+  }
+
+  sendProjectInvite(input: {
+    to: string
+    inviteId: string
+    projectName: string
+    hospitalName: string
+    projectRole: string
+    inviteUrl: string
+    expiresAt: Date
+  }): Promise<boolean> {
+    return this.deliver(
+      'project invite',
+      input.to,
+      `project-invite/${input.inviteId}`,
+      projectInviteEmail({ productName: PRODUCT_NAME, ...input }),
+    )
+  }
+
+  sendTaskAssigned(input: {
+    to: string
+    taskId: string
+    projectName: string
+    taskTitle: string
+    assignedBy: string
+    dueDate: string | null
+    taskUrl: string
+  }): Promise<boolean> {
+    return this.deliver(
+      'task assignment',
+      input.to,
+      `task-assigned/${input.taskId}/${input.to}/${Date.now()}`,
+      taskAssignedEmail({ productName: PRODUCT_NAME, ...input }),
+    )
+  }
+
+  sendMention(input: {
+    to: string
+    commentId: string
+    projectName: string
+    taskTitle: string
+    author: string
+    excerpt: string
+    taskUrl: string
+  }): Promise<boolean> {
+    return this.deliver(
+      'mention',
+      input.to,
+      `mention/${input.commentId}/${input.to}`,
+      mentionEmail({ productName: PRODUCT_NAME, ...input }),
     )
   }
 

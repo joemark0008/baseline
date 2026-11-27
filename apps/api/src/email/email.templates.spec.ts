@@ -1,4 +1,10 @@
-import { inviteEmail, passwordResetEmail } from './email.templates.js'
+import {
+  inviteEmail,
+  mentionEmail,
+  passwordResetEmail,
+  projectInviteEmail,
+  taskAssignedEmail,
+} from './email.templates.js'
 
 const expiresAt = new Date('2026-12-03T10:00:00Z')
 
@@ -51,5 +57,49 @@ describe('passwordResetEmail', () => {
     expect(email.text).toContain('https://app.example.com/reset-password?token=xyz')
     expect(email.text).toMatch(/once/i)
     expect(email.html).toContain('3 Dec 2026')
+  })
+})
+
+describe('project emails', () => {
+  it('invites into a project with the role and link', () => {
+    const email = projectInviteEmail({
+      productName: 'Baseline',
+      projectName: 'Northstar HIS',
+      hospitalName: 'Northstar Community Hospital',
+      projectRole: 'Member',
+      inviteUrl: 'https://app.example.com/invite?token=t',
+      expiresAt,
+    })
+    expect(email.subject).toBe("You're invited to Northstar HIS on Baseline")
+    expect(email.text).toContain('as Member')
+    expect(email.html).toContain('https://app.example.com/invite?token=t')
+  })
+
+  it('tells an assignee about a task and its due date', () => {
+    const email = taskAssignedEmail({
+      productName: 'Baseline',
+      projectName: 'Northstar HIS',
+      taskTitle: 'Validate nursing workflows',
+      assignedBy: 'Ada',
+      dueDate: '2026-12-03',
+      taskUrl: 'https://app.example.com/projects/p1/tasks?task=t1',
+    })
+    expect(email.subject).toBe('Ada assigned you "Validate nursing workflows"')
+    expect(email.text).toContain('due on 2026-12-03')
+    expect(email.text).toContain('https://app.example.com/projects/p1/tasks?task=t1')
+  })
+
+  it('quotes the comment that mentioned the person, escaped in html', () => {
+    const email = mentionEmail({
+      productName: 'Baseline',
+      projectName: 'Northstar HIS',
+      taskTitle: 'Validate nursing workflows',
+      author: 'Ada',
+      excerpt: 'Can you check <this>?',
+      taskUrl: 'https://app.example.com/projects/p1/tasks?task=t1',
+    })
+    expect(email.subject).toBe('Ada mentioned you on "Validate nursing workflows"')
+    expect(email.text).toContain('Can you check <this>?')
+    expect(email.html).toContain('Can you check &lt;this&gt;?')
   })
 })

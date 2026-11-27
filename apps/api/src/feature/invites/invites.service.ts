@@ -14,7 +14,7 @@ import { buildPageMeta, toPageQuery } from '../../common/pagination/paginate.js'
 import { legacyRoleFor, UserRole } from '../../common/user-role.enum.js'
 import { APP_ENV, type AppEnv } from '../../config/env.js'
 import { EmailService } from '../../email/email.service.js'
-import { PrismaService } from '../../prisma/prisma.service.js'
+import { PrismaService, type PrismaTx } from '../../prisma/prisma.service.js'
 import { AcceptInviteResult } from './dto/accept-invite.output.js'
 import { InviteValidation } from './dto/invite-validation.output.js'
 import { InvitesPage } from './dto/invites-page.output.js'
@@ -38,13 +38,36 @@ interface InviteRow {
   expiresAt: Date
   acceptedAt: Date | null
   createdAt: Date
+  projectId?: string | null
+  projectRole?: 'MANAGER' | 'MEMBER' | null
 }
 
 const WITH_ROLE = { role: { select: { id: true, name: true, kind: true } } } as const
 
+/** Adds the accepted invitee to a project in the accepting transaction; registered by ProjectsModule. */
+export type ProjectJoinWriter = (
+  tx: PrismaTx,
+  join: { projectId: string; userId: string; role: 'MANAGER' | 'MEMBER' },
+) => Promise<void>
+
+/** An invite that also joins an implementation project on acceptance (feature 007). */
+export interface ProjectInviteContext {
+  id: string
+  role: 'MANAGER' | 'MEMBER'
+  name: string
+  hospitalName: string
+}
+
 /** Invitation-only sign-up: issuing, validating, accepting, listing and revoking invites. */
 @Injectable()
 export class InvitesService {
+  private projectJoin: ProjectJoinWriter | null = null
+
+  /** ProjectsModule registers how an accepted project invite joins the project (avoids a module cycle). */
+  setProjectJoin(writer: ProjectJoinWriter): void {
+    this.projectJoin = writer
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: AccessService,
@@ -62,6 +85,8 @@ export class InvitesService {
     roleId?: string | null
     legacyRole?: UserRole | 'admin' | 'user' | null
     invitedById: string
+    /** When set, the invite joins this project on acceptance and the project email is sent instead. */
+    project?: ProjectInviteContext | null
   }): Promise<{ invite: Invite; token: string; inviteUrl: string; emailSent: boolean }> {
     const email = this.normalizeEmail(input.email)
     const roleId =
@@ -88,18 +113,29 @@ export class InvitesService {
         invitedById: input.invitedById,
         expiresAt: new Date(now.getTime() + INVITE_TTL_MS),
         createdAt: now,
+        ...(input.project ? { projectId: input.project.id, projectRole: input.project.role } : {}),
       },
       include: WITH_ROLE,
     })
     const invite = this.toInvite(row)
     const inviteUrl = buildInviteUrl(this.env.webOrigins[0], token, email)
-    const emailSent = await this.email.sendInvite({
-      to: email,
-      inviteId: invite.id,
-      inviteUrl,
-      roleName: role.name,
-      expiresAt: invite.expiresAt,
-    })
+    const emailSent = input.project
+      ? await this.email.sendProjectInvite({
+          to: email,
+          inviteId: invite.id,
+          projectName: input.project.name,
+          hospitalName: input.project.hospitalName,
+          projectRole: input.project.role === 'MANAGER' ? 'Manager' : 'Member',
+          inviteUrl,
+          expiresAt: invite.expiresAt,
+        })
+      : await this.email.sendInvite({
+          to: email,
+          inviteId: invite.id,
+          inviteUrl,
+          roleName: role.name,
+          expiresAt: invite.expiresAt,
+        })
     return { invite, token, inviteUrl, emailSent }
   }
 
@@ -132,6 +168,13 @@ export class InvitesService {
     await this.prisma.client.$transaction(async (tx) => {
       await tx.invite.update({ where: { id: row.id }, data: { acceptedAt: now } })
       await this.access.assignRole(user.userId, row.roleId, tx)
+      if (row.projectId && row.projectRole && this.projectJoin) {
+        await this.projectJoin(tx, {
+          projectId: row.projectId,
+          userId: user.userId,
+          role: row.projectRole,
+        })
+      }
     })
     return { role: legacyRoleFor(row.role.kind), roleName: row.role.name }
   }

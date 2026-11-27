@@ -13,6 +13,7 @@ import { RolesModule } from './feature/roles/roles.module.js'
 import { AuthPasswordsModule } from './auth/auth-passwords.module.js'
 import { PasswordResetModule } from './feature/password-reset/password-reset.module.js'
 import { RateLimitModule } from './rate-limit/rate-limit.module.js'
+import { ProjectsModule } from './feature/projects/projects.module.js'
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { RateLimitModule } from './rate-limit/rate-limit.module.js'
     SetupModule,
     RolesModule,
     PasswordResetModule,
+    ProjectsModule,
   ],
 })
 export class AppModule {}

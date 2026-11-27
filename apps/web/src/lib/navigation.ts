@@ -1,4 +1,4 @@
-import { LayoutDashboard, Settings, Users, type LucideIcon } from 'lucide-react'
+import { FolderKanban, LayoutDashboard, Settings, Users, type LucideIcon } from 'lucide-react'
 import type { FileRouteTypes } from '../routeTree.gen'
 import type { Requirement } from './access'
 
@@ -33,6 +33,13 @@ export interface NavLink {
 export const protectedNavLinks: NavLink[] = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, group: 'Main' },
   {
+    label: 'Projects',
+    to: '/projects',
+    icon: FolderKanban,
+    group: 'Main',
+    requires: { area: 'projects', action: 'view' },
+  },
+  {
     label: 'Settings',
     to: '/settings',
     icon: Settings,
@@ -45,6 +52,11 @@ export const protectedNavLinks: NavLink[] = [
         to: '/settings/roles/history',
         exact: true,
         requires: { area: 'roles', action: 'view' },
+      },
+      {
+        label: 'Template',
+        to: '/settings/template',
+        requires: { area: 'projects', action: 'edit' },
       },
     ],
   },
@@ -61,4 +73,11 @@ export const protectedNavLinks: NavLink[] = [
 export const DETAIL_CRUMBS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
   { pattern: /^\/settings\/roles\/new$/, label: 'New role' },
   { pattern: /^\/settings\/roles\/[^/]+$/, label: 'Edit role' },
+  { pattern: /^\/projects\/[^/]+$/, label: 'Overview' },
+  { pattern: /^\/projects\/[^/]+\/timeline$/, label: 'Timeline' },
+  { pattern: /^\/projects\/[^/]+\/tasks$/, label: 'Tasks' },
+  { pattern: /^\/projects\/[^/]+\/readiness$/, label: 'Data readiness' },
+  { pattern: /^\/projects\/[^/]+\/team$/, label: 'Team' },
+  { pattern: /^\/projects\/[^/]+\/stakeholders$/, label: 'Stakeholders' },
+  { pattern: /^\/projects\/[^/]+\/activity$/, label: 'Activity' },
 ]

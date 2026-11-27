@@ -5,6 +5,8 @@ export type GuardDecision = { allow: true } | { allow: false; redirectTo: '/logi
 /** Pages that need a permission, by path prefix. Add a row when a feature adds a protected page. */
 export const ROUTE_PERMISSIONS: Array<{ prefix: string; requires: Requirement }> = [
   { prefix: '/admin/users', requires: { area: 'users', action: 'view' } },
+  { prefix: '/projects', requires: { area: 'projects', action: 'view' } },
+  { prefix: '/settings/template', requires: { area: 'projects', action: 'edit' } },
   // Most specific first: the first matching prefix wins.
   { prefix: '/settings/roles/new', requires: { area: 'roles', action: 'add' } },
   { prefix: '/settings/roles', requires: { area: 'roles', action: 'view' } },

@@ -18,8 +18,16 @@ describe('visibleNav', () => {
   it('hides what a member may not use, and drops empty groups', () => {
     const nav = visibleNav(member)
     expect(nav.map((g) => g.group)).toEqual(['Main'])
+    expect(nav[0].links.map((l) => l.label)).toEqual(['Dashboard', 'Settings'])
     const settings = nav[0].links.find((l) => l.label === 'Settings')
     expect(settings?.items?.map((i) => i.label)).toEqual(['Account'])
+  })
+
+  it('shows Projects and the template editor with the projects permissions', () => {
+    const nav = visibleNav({ ...admin, permissions: ['projects:view', 'projects:edit'] })
+    expect(nav[0].links.map((l) => l.label)).toEqual(['Dashboard', 'Projects', 'Settings'])
+    const settings = nav[0].links.find((l) => l.label === 'Settings')
+    expect(settings?.items?.map((i) => i.label)).toEqual(['Account', 'Template'])
   })
 })
 
@@ -50,6 +58,14 @@ describe('breadcrumbs', () => {
   it('adds a readable crumb for detail pages, never the id', () => {
     expect(labels('/settings/roles/new')).toEqual(['Settings', 'Roles', 'New role'])
     expect(labels('/settings/roles/abc123')).toEqual(['Settings', 'Roles', 'Edit role'])
+  })
+
+  it('names project pages after their tab, never the project id', () => {
+    const pm: Access = { ...admin, permissions: ['projects:view'] }
+    expect(labels('/projects', pm)).toEqual(['Projects'])
+    expect(labels('/projects/abc123', pm)).toEqual(['Projects', 'Overview'])
+    expect(labels('/projects/abc123/tasks', pm)).toEqual(['Projects', 'Tasks'])
+    expect(labels('/projects/abc123/readiness', pm)).toEqual(['Projects', 'Data readiness'])
   })
 
   it('links every crumb but the last', () => {

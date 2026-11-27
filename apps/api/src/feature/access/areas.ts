@@ -1,4 +1,5 @@
 import { invitesArea } from '../invites/invites.access.js'
+import { projectsArea } from '../projects/projects.access.js'
 import { rolesArea } from '../roles/roles.access.js'
 import { usersArea } from '../users/users.access.js'
 import type { AreaDef } from './define-area.js'
@@ -15,7 +16,7 @@ export function assertUniqueKeys(areas: readonly AreaDef[]): void {
  * The permission catalogue: every protectable area, in the order the roles grid shows them.
  * To protect a new feature, declare its area in `<feature>.access.ts` and add it here.
  */
-export const ACCESS_AREAS = [usersArea, invitesArea, rolesArea] as const
+export const ACCESS_AREAS = [usersArea, invitesArea, rolesArea, projectsArea] as const
 assertUniqueKeys(ACCESS_AREAS)
 
 export type AreaKey = (typeof ACCESS_AREAS)[number]['key']

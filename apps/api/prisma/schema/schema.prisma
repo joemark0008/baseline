@@ -4,6 +4,7 @@
 //   invites.prisma         invitation-only sign-up
 //   access.prisma          roles, permissions and the History audit trail
 //   password-reset.prisma  Admin-issued password reset links
+//   projects.prisma        HIS implementation projects (template, phases, tasks, deliverables, activity)
 // Prisma reads every .prisma file in this folder (constitution: Technology Stack › ORM).
 
 generator client {

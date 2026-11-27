@@ -107,3 +107,86 @@ export function passwordResetEmail(input: {
   )
   return { subject, html, text }
 }
+
+export function projectInviteEmail(input: {
+  productName: string
+  projectName: string
+  hospitalName: string
+  projectRole: string
+  inviteUrl: string
+  expiresAt: Date
+}): RenderedEmail {
+  const expiry = formatExpiry(input.expiresAt)
+  const subject = `You're invited to ${input.projectName} on ${input.productName}`
+  const text = [
+    `You have been invited to join the implementation project "${input.projectName}" (${input.hospitalName}) as ${input.projectRole}.`,
+    '',
+    `Accept the invitation: ${input.inviteUrl}`,
+    '',
+    `The link works until ${expiry}. If you did not expect this invitation, ignore this email.`,
+  ].join('\n')
+  const html = layout(
+    input.productName,
+    `Join ${input.projectName}`,
+    [
+      `You have been invited to join the implementation project <strong>${escapeHtml(input.projectName)}</strong> (${escapeHtml(input.hospitalName)}) as <strong>${escapeHtml(input.projectRole)}</strong>.`,
+      `The link works until ${escapeHtml(expiry)}. If you did not expect this invitation, ignore this email.`,
+    ],
+    { href: input.inviteUrl, label: 'Open the invitation' },
+  )
+  return { subject, html, text }
+}
+
+export function taskAssignedEmail(input: {
+  productName: string
+  projectName: string
+  taskTitle: string
+  assignedBy: string
+  dueDate: string | null
+  taskUrl: string
+}): RenderedEmail {
+  const due = input.dueDate ? `It is due on ${input.dueDate}.` : 'It has no due date yet.'
+  const subject = `${input.assignedBy} assigned you "${input.taskTitle}"`
+  const text = [
+    `${input.assignedBy} assigned you the task "${input.taskTitle}" in ${input.projectName}. ${due}`,
+    '',
+    `Open the task: ${input.taskUrl}`,
+  ].join('\n')
+  const html = layout(
+    input.productName,
+    `You were assigned "${input.taskTitle}"`,
+    [
+      `<strong>${escapeHtml(input.assignedBy)}</strong> assigned you this task in <strong>${escapeHtml(input.projectName)}</strong>. ${escapeHtml(due)}`,
+    ],
+    { href: input.taskUrl, label: 'Open the task' },
+  )
+  return { subject, html, text }
+}
+
+export function mentionEmail(input: {
+  productName: string
+  projectName: string
+  taskTitle: string
+  author: string
+  excerpt: string
+  taskUrl: string
+}): RenderedEmail {
+  const subject = `${input.author} mentioned you on "${input.taskTitle}"`
+  const text = [
+    `${input.author} mentioned you in a comment on "${input.taskTitle}" (${input.projectName}):`,
+    '',
+    input.excerpt,
+    '',
+    `Open the task: ${input.taskUrl}`,
+  ].join('\n')
+  const html = layout(
+    input.productName,
+    `${input.author} mentioned you`,
+    [
+      `On <strong>${escapeHtml(input.taskTitle)}</strong> in <strong>${escapeHtml(input.projectName)}</strong>:`,
+      `<em>${escapeHtml(input.excerpt)}</em>`,
+    ],
+    { href: input.taskUrl, label: 'Open the task' },
+  )
+  return { subject, html, text }
+}

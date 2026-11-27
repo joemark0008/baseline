@@ -22,6 +22,22 @@ describe('guardProtected', () => {
     })
   })
 
+  it('keeps people without projects:view out of the projects pages', () => {
+    expect(guardProtected(session, withPermissions(), '/projects/abc')).toEqual({
+      allow: false,
+      redirectTo: '/dashboard',
+    })
+    expect(guardProtected(session, withPermissions('projects:view'), '/projects/abc')).toEqual({
+      allow: true,
+    })
+    expect(guardProtected(session, withPermissions('projects:view'), '/settings/template')).toEqual(
+      {
+        allow: false,
+        redirectTo: '/dashboard',
+      },
+    )
+  })
+
   it('allows signed-in people on pages that need no permission', () => {
     expect(guardProtected(session, withPermissions(), '/settings')).toEqual({ allow: true })
   })
