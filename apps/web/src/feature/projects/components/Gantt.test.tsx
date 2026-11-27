@@ -19,6 +19,7 @@ const task = (over: Partial<PhaseData['tasks'][number]>): PhaseData['tasks'][num
   predecessor: null,
   position: 1,
   predecessorConflict: false,
+  completedAt: null,
   createdAt: '2026-11-01T00:00:00Z',
   updatedAt: '2026-11-01T00:00:00Z',
   ...over,
@@ -80,6 +81,33 @@ describe('Gantt', () => {
     expect(screen.getByLabelText('Scrollable Gantt timeline')).toHaveClass('overflow-x-auto')
     expect(screen.getByText('Jun 2026')).toBeInTheDocument()
     expect(screen.getByText('Feb 2027')).toBeInTheDocument()
+  })
+
+  it('draws only the phase row for a folded phase and toggles from its label (feature 011)', async () => {
+    const onTogglePhase = vi.fn()
+    render(
+      <Gantt
+        phases={phases}
+        startDate={null}
+        targetGoLiveDate={null}
+        collapsedPhaseIds={new Set(['ph2'])}
+        onTogglePhase={onTogglePhase}
+      />,
+    )
+    expect(
+      screen.getByRole('img', { name: 'Training: 2026-11-01 to 2026-12-15' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Run workshop')).not.toBeInTheDocument()
+    expect(screen.getByText('Validate workflows')).toBeInTheDocument()
+    expect(screen.getByText('(1 task)')).toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Expand Training' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(onTogglePhase).toHaveBeenCalledWith('ph2')
+    expect(screen.getByRole('button', { name: 'Collapse Kickoff' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
   })
 
   it('explains what to do when nothing is dated', () => {

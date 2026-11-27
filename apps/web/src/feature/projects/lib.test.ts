@@ -1,20 +1,29 @@
 import {
-  applyWorkFilters,
   columnsByStatus,
   deltaToDays,
+  doneCountByPhase,
+  emptyReason,
   formatDate,
   groupByPhase,
+  hiddenDoneCount,
   initials,
+  isRecentlyDone,
   label,
+  matchCounts,
   neighboursFor,
+  normaliseText,
   orderByPosition,
   parseWorkSearch,
+  phaseAt,
+  phaseNumber,
   provisionalPosition,
   resizeDate,
   shiftDates,
+  visibleTasks,
   workSortOf,
   type PhaseData,
   type TaskData,
+  type VisibleContext,
 } from './lib'
 
 describe('project helpers', () => {
@@ -51,6 +60,7 @@ const t = (id: string, over: Partial<TaskData> = {}): TaskData => ({
   predecessor: null,
   position: 0,
   predecessorConflict: false,
+  completedAt: null,
   createdAt: '2026-11-01T00:00:00Z',
   updatedAt: '2026-11-01T00:00:00Z',
   ...over,
@@ -101,25 +111,49 @@ describe('work views (feature 010)', () => {
     expect(groupByPhase(tasks, phases, 'title')[0].tasks.map((x) => x.id)).toEqual(['a', 'b', 'd'])
   })
 
-  it('filters by phase, owner, status and overdue', () => {
-    expect(applyWorkFilters(tasks, { phase: 'ph2' }).map((x) => x.id)).toEqual(['c'])
-    expect(applyWorkFilters(tasks, { owner: 'ada' }).map((x) => x.id)).toEqual(['d'])
-    expect(applyWorkFilters(tasks, { status: 'IN_PROGRESS' }).map((x) => x.id)).toEqual(['a'])
-    expect(applyWorkFilters(tasks, { overdue: true }).map((x) => x.id)).toEqual(['c'])
-    expect(applyWorkFilters(tasks, {})).toHaveLength(4)
+  it('filters by phase number, owner, status and overdue', () => {
+    const phases = [phase('ph2', 2), phase('ph1', 1)]
+    const ctx = (search: VisibleContext['search']): VisibleContext => ({
+      search,
+      phases,
+      userId: null,
+      showDone: true,
+    })
+    expect(visibleTasks(tasks, ctx({ phase: 2 })).map((x) => x.id)).toEqual(['c'])
+    expect(visibleTasks(tasks, ctx({ phase: 1 }))).toHaveLength(3)
+    expect(visibleTasks(tasks, ctx({ phase: 9 }))).toEqual([])
+    expect(visibleTasks(tasks, ctx({ owner: 'ada' })).map((x) => x.id)).toEqual(['d'])
+    expect(visibleTasks(tasks, ctx({ status: 'IN_PROGRESS' })).map((x) => x.id)).toEqual(['a'])
+    expect(visibleTasks(tasks, ctx({ overdue: true })).map((x) => x.id)).toEqual(['c'])
+    expect(visibleTasks(tasks, ctx({}))).toHaveLength(4)
+  })
+
+  it('numbers phases by plan order, not by id', () => {
+    const phases = [phase('ph2', 2), phase('ph1', 1)]
+    expect(phaseNumber(phases, 'ph2')).toBe(2)
+    expect(phaseNumber(phases, 'nope')).toBe(0)
+    expect(phaseAt(phases, 1)?.id).toBe('ph1')
+    expect(phaseAt(phases, 3)).toBeNull()
   })
 
   it('parses search params, dropping unknown values and the default sort', () => {
     expect(
       parseWorkSearch({
-        phase: 'ph1',
+        phase: '2',
         owner: '',
         status: 'NOPE',
         overdue: 'true',
         sort: 'due',
         task: 't9',
+        q: ' lab ',
+        mine: 'true',
       }),
-    ).toEqual({ phase: 'ph1', overdue: true, sort: 'due', task: 't9' })
+    ).toEqual({ phase: 2, overdue: true, sort: 'due', task: 't9', q: 'lab', mine: true })
+    expect(parseWorkSearch({ q: '   ', mine: 'yes' })).toEqual({})
+    expect(parseWorkSearch({ q: 'x'.repeat(120), mine: true }).q).toHaveLength(100)
+    expect(parseWorkSearch({ phase: 3 })).toEqual({ phase: 3 })
+    expect(parseWorkSearch({ phase: 'cmwy97nzq0001' })).toEqual({})
+    expect(parseWorkSearch({ phase: 0 })).toEqual({})
     expect(parseWorkSearch({ sort: 'manual', overdue: false })).toEqual({})
     expect(workSortOf({})).toBe('manual')
   })
@@ -177,5 +211,105 @@ describe('timeline geometry (feature 010)', () => {
       dueDate: '2026-12-10',
     })
     expect(resizeDate({ startDate: null, dueDate: '2026-12-10' }, 'start', 2).startDate).toBeNull()
+  })
+})
+
+describe('readability (feature 011)', () => {
+  const now = new Date('2026-11-27T10:00:00Z')
+  const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000).toISOString()
+  const phases = [phase('ph1', 1), phase('ph2', 2)]
+  const done = (id: string, over: Partial<TaskData> = {}) =>
+    t(id, { status: 'COMPLETE', completedAt: daysAgo(30), ...over })
+  const tasks = [
+    t('open1', {
+      title: 'Validate lab orders',
+      owner: { id: 'ada', name: 'Ada Lovelace', email: 'ada@x.dev', image: null },
+    }),
+    t('open2', { title: 'Éducation des infirmières', phaseId: 'ph2' }),
+    done('old1'),
+    done('old2', { phaseId: 'ph2', title: 'Lab interface' }),
+    done('fresh', { completedAt: daysAgo(2) }),
+  ]
+  const ctx = (over: Partial<VisibleContext> = {}): VisibleContext => ({
+    search: {},
+    phases,
+    userId: 'ada',
+    showDone: false,
+    now,
+    ...over,
+  })
+  const ids = (list: TaskData[]) => list.map((x) => x.id)
+
+  it('normalises case and accents', () => {
+    expect(normaliseText('Éducation ')).toBe('education')
+    expect(normaliseText('LAB Orders')).toBe('lab orders')
+  })
+
+  it('treats a completion within seven days as recent', () => {
+    expect(isRecentlyDone(done('x', { completedAt: daysAgo(6.95) }), now)).toBe(true)
+    expect(isRecentlyDone(done('x', { completedAt: daysAgo(7.05) }), now)).toBe(false)
+    expect(isRecentlyDone(t('x', { completedAt: daysAgo(1) }), now)).toBe(false)
+    expect(isRecentlyDone(done('x', { completedAt: null }), now)).toBe(false)
+  })
+
+  it('hides done tasks unless shown, filtered to Complete, opened, or recent on the Board', () => {
+    expect(ids(visibleTasks(tasks, ctx()))).toEqual(['open1', 'open2'])
+    expect(ids(visibleTasks(tasks, ctx({ recentDoneVisible: true })))).toEqual([
+      'open1',
+      'open2',
+      'fresh',
+    ])
+    expect(ids(visibleTasks(tasks, ctx({ showDone: true })))).toHaveLength(5)
+    expect(ids(visibleTasks(tasks, ctx({ search: { status: 'COMPLETE' } })))).toEqual([
+      'old1',
+      'old2',
+      'fresh',
+    ])
+    expect(ids(visibleTasks(tasks, ctx({ search: { task: 'old1' } })))).toEqual([
+      'open1',
+      'open2',
+      'old1',
+    ])
+  })
+
+  it('narrows to mine and to the search text on title or owner name', () => {
+    expect(ids(visibleTasks(tasks, ctx({ search: { mine: true } })))).toEqual(['open1'])
+    expect(ids(visibleTasks(tasks, ctx({ search: { mine: true }, userId: null })))).toEqual([])
+    expect(ids(visibleTasks(tasks, ctx({ search: { q: 'LAB' } })))).toEqual(['open1'])
+    expect(ids(visibleTasks(tasks, ctx({ search: { q: 'lovelace' } })))).toEqual(['open1'])
+    expect(ids(visibleTasks(tasks, ctx({ search: { q: 'education' } })))).toEqual(['open2'])
+    expect(ids(visibleTasks(tasks, ctx({ search: { q: 'lab' }, showDone: true })))).toEqual([
+      'open1',
+      'old2',
+    ])
+  })
+
+  it('counts done work per phase and what a view hides', () => {
+    expect([...doneCountByPhase(tasks)]).toEqual([
+      ['ph1', 2],
+      ['ph2', 1],
+    ])
+    expect(hiddenDoneCount(tasks, visibleTasks(tasks, ctx()))).toBe(3)
+    expect(hiddenDoneCount(tasks, visibleTasks(tasks, ctx({ recentDoneVisible: true })))).toBe(2)
+    expect(hiddenDoneCount(tasks, visibleTasks(tasks, ctx({ showDone: true })))).toBe(0)
+  })
+
+  it('reports matching of total per container', () => {
+    const visible = visibleTasks(tasks, ctx({ search: { q: 'lab' }, showDone: true }))
+    expect([...matchCounts(visible, tasks, (x) => x.phaseId)]).toEqual([
+      ['ph1', { matching: 1, total: 3 }],
+      ['ph2', { matching: 1, total: 2 }],
+    ])
+  })
+
+  it('explains an empty view', () => {
+    const reason = (all: TaskData[], over: Partial<VisibleContext> = {}) =>
+      emptyReason(all, visibleTasks(all, ctx(over)), ctx(over))
+    expect(reason(tasks)).toBeNull()
+    expect(reason([])).toBe('none')
+    expect(reason([done('a'), done('b')])).toBe('all-done')
+    expect(reason(tasks, { search: { q: 'zzz' } })).toBe('no-match')
+    expect(reason(tasks, { search: { q: 'interface' } })).toBe('only-done-match')
+    expect(reason(tasks, { search: { q: 'interface' }, showDone: true })).toBeNull()
   })
 })

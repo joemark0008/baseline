@@ -96,6 +96,7 @@ export const PROJECT = graphql(`
           }
           position
           predecessorConflict
+          completedAt
           createdAt
           updatedAt
         }
@@ -188,6 +189,7 @@ export const PROJECT_TASK = graphql(`
       }
       position
       predecessorConflict
+      completedAt
       createdAt
       updatedAt
       comments {

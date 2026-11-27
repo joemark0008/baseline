@@ -15,14 +15,38 @@ export const phaseOfGroup = (id: string | number): string | null =>
 export interface TaskListGroupProps {
   phase: PhaseData
   taskIds: string[]
+  /** Feature 011 header figures: overdue among the shown rows, done in the phase, total while filtering. */
+  overdue?: number
+  done?: number
+  total?: number
+  filtered?: boolean
+  /** Feature 011 FR-011: controlled fold state; uncontrolled (open) when absent. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
   /** Rendered under the rows; the quick-add form. */
   footer?: ReactNode
   children: ReactNode
 }
 
 /** One collapsible phase group of the List: droppable, sortable, with its count and quick-add. */
-export function TaskListGroup({ phase, taskIds, footer, children }: TaskListGroupProps) {
-  const [open, setOpen] = useState(true)
+export function TaskListGroup({
+  phase,
+  taskIds,
+  overdue = 0,
+  done,
+  total,
+  filtered = false,
+  open: controlled,
+  onOpenChange,
+  footer,
+  children,
+}: TaskListGroupProps) {
+  const [local, setLocal] = useState(true)
+  const open = controlled ?? local
+  const setOpen = (next: boolean) => {
+    setLocal(next)
+    onOpenChange?.(next)
+  }
   const { setNodeRef, isOver } = useDroppable({
     id: groupId(phase.id),
     data: { type: 'phase', phaseId: phase.id },
@@ -44,9 +68,22 @@ export function TaskListGroup({ phase, taskIds, footer, children }: TaskListGrou
               <span className="font-semibold">{phase.name}</span>
             </Button>
           </CollapsibleTrigger>
-          <Badge variant="secondary" aria-label={`${taskIds.length} tasks in ${phase.name}`}>
-            {taskIds.length}
+          <Badge
+            variant="secondary"
+            aria-label={
+              filtered && total !== undefined
+                ? `${taskIds.length} of ${total} tasks in ${phase.name}`
+                : `${taskIds.length} tasks in ${phase.name}`
+            }
+          >
+            {filtered && total !== undefined ? `${taskIds.length} of ${total}` : taskIds.length}
           </Badge>
+          {overdue > 0 ? (
+            <span className="text-xs font-medium text-destructive">{overdue} overdue</span>
+          ) : null}
+          {done !== undefined ? (
+            <span className="text-xs text-muted-foreground">{done} done</span>
+          ) : null}
         </div>
         <CollapsibleContent className="flex flex-col gap-2 border-t px-3 pt-1 pb-3">
           <SortableContext

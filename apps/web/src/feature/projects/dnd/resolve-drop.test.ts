@@ -54,4 +54,24 @@ describe('previewMove', () => {
       BLOCKED: ['a'],
     })
   })
+
+  it('lands after the full order of a container dropped onto directly (feature 011)', () => {
+    const isContainer = (id: string | number) =>
+      typeof id === 'string' && id.startsWith('c:') ? id.slice(2) : null
+    const origin = { a: ['x', 'y'], b: ['p'] }
+    const full = { a: ['x', 'y', 'hidden1'], b: ['p', 'hidden2'] }
+    const live = { a: ['x'], b: ['p', 'y'] }
+    expect(resolveDrop(live, origin, 'y', 'c:b', isContainer, { full })).toEqual({
+      container: 'b',
+      neighbours: { afterTaskId: 'hidden2' },
+    })
+    expect(resolveDrop(live, origin, 'y', 'c:b', isContainer)).toEqual({
+      container: 'b',
+      neighbours: { afterTaskId: 'p' },
+    })
+    expect(resolveDrop(live, origin, 'y', 'p', isContainer, { full })).toEqual({
+      container: 'b',
+      neighbours: { afterTaskId: 'p' },
+    })
+  })
 })

@@ -85,6 +85,11 @@ export class ProjectTask {
       'Starts before its predecessor is due; a warning, not a refusal (feature 010, FR-019).',
   })
   predecessorConflict: boolean
+  @Field(() => Date, {
+    nullable: true,
+    description: 'When the status last became COMPLETE; null while not complete (feature 011).',
+  })
+  completedAt: Date | null
   @Field() createdAt: Date
   @Field() updatedAt: Date
   @Field(() => [TaskComment]) comments: TaskComment[]

@@ -9,6 +9,7 @@ import { ProjectDialog } from '../components/ProjectDialog'
 import { StatusBadge } from '../components/StatusBadge'
 import { formatDate } from '../lib'
 import { PROJECT } from '../operations'
+import { ReadabilityProvider } from '../readability'
 import { writeViewPreference, type WorkView } from '../view-preferences'
 import { ProjectContext } from './context'
 
@@ -132,7 +133,13 @@ export function ProjectLayout({ id }: { id: string }) {
           })}
         </nav>
       </div>
-      <Outlet />
+      <ReadabilityProvider
+        key={project.id}
+        projectId={project.id}
+        phaseIds={project.phases.map((p) => p.id)}
+      >
+        <Outlet />
+      </ReadabilityProvider>
       {editing ? <ProjectDialog open project={project} onOpenChange={setEditing} /> : null}
     </ProjectContext.Provider>
   )

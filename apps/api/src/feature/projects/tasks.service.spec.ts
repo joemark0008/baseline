@@ -25,6 +25,7 @@ interface Row {
   dueDate: Date | null
   predecessorId: string | null
   position: number
+  completedAt?: Date | null
   createdById: string
   createdAt: Date
   updatedAt: Date
@@ -311,6 +312,41 @@ describe('TasksService', () => {
     ).rejects.toThrow('only mention members')
     expect((await svc.get(task.id, 'ada')).comments).toHaveLength(1)
   })
+  describe('completion timestamp (feature 011)', () => {
+    const now = new Date('2026-11-27T10:00:00Z')
+    const stored = (id: string) => db.tasks.find((t) => t.id === id)!
+
+    it('stamps a task created as complete and leaves others null', async () => {
+      const done = await svc.create({ ...base, status: TaskStatus.COMPLETE }, 'ada')
+      expect(done.completedAt).toEqual(now)
+      const open = await svc.create(base, 'ada')
+      expect(open.completedAt).toBeNull()
+    })
+
+    it('stamps on completion through update and clears on reopening', async () => {
+      const task = await svc.create(base, 'ada')
+      const done = await svc.update({ id: task.id, status: TaskStatus.COMPLETE }, 'ada')
+      expect(done.completedAt).toEqual(now)
+      const renamed = await svc.update({ id: task.id, title: 'Renamed' }, 'ada')
+      expect(renamed.completedAt).toEqual(now)
+      const reopened = await svc.update({ id: task.id, status: TaskStatus.IN_PROGRESS }, 'ada')
+      expect(reopened.completedAt).toBeNull()
+      expect(stored(task.id).completedAt).toBeNull()
+    })
+
+    it('stamps on a drag to Complete and writes nothing for a no-op move', async () => {
+      const task = await svc.create(base, 'ada')
+      const done = await svc.move({ id: task.id, status: TaskStatus.COMPLETE }, 'ada')
+      expect(done.completedAt).toEqual(now)
+      const same = await svc.move({ id: task.id, status: TaskStatus.COMPLETE }, 'ada')
+      expect(same.completedAt).toEqual(now)
+      expect(db.activity.map((a) => a.summary)).toEqual([
+        'created task Validate nursing workflows',
+        'moved task Validate nursing workflows to complete',
+      ])
+    })
+  })
+
   describe('manual order and drag-and-drop moves (feature 010)', () => {
     const titles = ['A', 'B', 'C', 'D']
     async function seed() {

@@ -22,13 +22,21 @@ import {
   type TaskData,
   type WorkSort,
 } from '../lib'
+import type { Folding } from '../readability'
+import { FoldAll } from './FoldAll'
 import { QuickAddRow } from './QuickAddRow'
 import { phaseOfGroup, TaskListGroup } from './TaskListGroup'
 import { TaskListRow, type InlineTaskPatch } from './TaskListRow'
 
 export interface TaskListProps {
   projectId: string
+  /** The rows to draw (after filters). */
   tasks: TaskData[]
+  /** Every task of the project, so drops resolve against the full manual order (feature 011). */
+  allTasks?: TaskData[]
+  /** Feature 011: completed tasks per phase id, for the "N done" figure. */
+  doneCounts?: ReadonlyMap<string, number>
+  filtered?: boolean
   phases: ReadonlyArray<PhaseData>
   members: ReadonlyArray<Person>
   canEdit: boolean
@@ -39,6 +47,8 @@ export interface TaskListProps {
   onResetSort: () => void
   /** Receives the first visible quick-add input, for the `n` shortcut. */
   quickAddRef?: Ref<HTMLInputElement>
+  /** Feature 011 FR-011: shared fold state; groups stay open when absent. */
+  folding?: Folding
 }
 
 const groupsOf = (
@@ -54,6 +64,9 @@ const groupsOf = (
 export function TaskList({
   projectId,
   tasks,
+  allTasks,
+  doneCounts,
+  filtered = false,
   phases,
   members,
   canEdit,
@@ -63,13 +76,17 @@ export function TaskList({
   onInlineChange,
   onResetSort,
   quickAddRef,
+  folding,
 }: TaskListProps) {
   const sensors = useWorkSensors()
   const ordered = useMemo(() => [...phases].sort((a, b) => a.order - b.order), [phases])
-  const source = useMemo(() => groupsOf(tasks, ordered, sort), [tasks, ordered, sort])
+  const everything = allTasks ?? tasks
+  // Drops resolve against the full manual order (research.md › Decision 6); rows follow the sort.
+  const source = useMemo(() => groupsOf(everything, ordered, 'manual'), [everything, ordered])
+  const shown = useMemo(() => groupsOf(tasks, ordered, sort), [tasks, ordered, sort])
   const [preview, setPreview] = useState<Containers | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const groups = preview ?? source
+  const groups = preview ?? shown
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
   const phaseName = useMemo(() => new Map(ordered.map((p) => [p.id, p.name])), [ordered])
   const sortable = canEdit && sort === 'manual'
@@ -107,7 +124,7 @@ export function TaskList({
 
   function onDragStart({ active }: DragStartEvent) {
     setActiveId(String(active.id))
-    setPreview(source)
+    setPreview(shown)
   }
 
   function onDragOver({ active, over }: DragOverEvent) {
@@ -116,13 +133,13 @@ export function TaskList({
     const to = phaseAt(over.id)
     if (!from || !to || from === to) return
     setPreview((prev) =>
-      previewMove(prev ?? source, String(active.id), from, to, over.id, phaseOfGroup),
+      previewMove(prev ?? shown, String(active.id), from, to, over.id, phaseOfGroup),
     )
   }
 
   function onDragEnd({ active, over }: DragEndEvent) {
     const id = String(active.id)
-    const drop = resolveDrop(groups, source, id, over?.id ?? null, phaseOfGroup)
+    const drop = resolveDrop(groups, source, id, over?.id ?? null, phaseOfGroup, { full: source })
     setActiveId(null)
     setPreview(null)
     if (!drop) return
@@ -139,11 +156,10 @@ export function TaskList({
   const moveToPhase = (task: TaskData, phaseId: string) =>
     onMove({ id: task.id, phaseId, ...neighboursFor(source[phaseId] ?? [], task.id, null) })
   const moveStep = (task: TaskData, direction: -1 | 1) => {
-    const ids = source[task.phaseId] ?? []
-    const idx = ids.indexOf(task.id)
-    const swapWith = ids[idx + direction]
+    const visible = shown[task.phaseId] ?? []
+    const swapWith = visible[visible.indexOf(task.id) + direction]
     if (!swapWith) return
-    onMove({ id: task.id, ...neighboursFor(ids, task.id, swapWith) })
+    onMove({ id: task.id, ...neighboursFor(source[task.phaseId] ?? [], task.id, swapWith) })
   }
 
   const active = activeId ? byId.get(activeId) : null
@@ -170,6 +186,11 @@ export function TaskList({
           </AlertDescription>
         </Alert>
       ) : null}
+      {folding ? (
+        <div className="flex justify-end">
+          <FoldAll folding={folding} phaseIds={ordered.map((p) => p.id)} />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-4" aria-label="Tasks by phase">
         {ordered.map((phase, phaseIndex) => {
           const ids = groups[phase.id] ?? []
@@ -179,6 +200,12 @@ export function TaskList({
               key={phase.id}
               phase={phase}
               taskIds={ids}
+              open={folding ? !folding.isCollapsed(phase.id) : undefined}
+              onOpenChange={folding ? () => folding.toggle(phase.id) : undefined}
+              overdue={ids.filter((id) => byId.get(id)?.overdue).length}
+              done={doneCounts?.get(phase.id) ?? (doneCounts ? 0 : undefined)}
+              total={source[phase.id]?.length ?? 0}
+              filtered={filtered}
               footer={
                 canEdit ? (
                   <QuickAddRow

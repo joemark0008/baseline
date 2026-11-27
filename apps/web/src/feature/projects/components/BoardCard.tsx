@@ -24,6 +24,9 @@ export interface BoardCardProps {
   onOpen: (taskId: string) => void
   onMoveTo: (task: TaskData, status: TaskData['status']) => void
   onMoveStep: (task: TaskData, direction: -1 | 1) => void
+  /** Lanes mode: the other phases the card can move to from its menu (FR-017). */
+  otherPhases?: ReadonlyArray<{ id: string; name: string }>
+  onMoveToPhase?: (task: TaskData, phaseId: string) => void
   isFirst?: boolean
   isLast?: boolean
 }
@@ -69,6 +72,8 @@ export function BoardCard({
   onOpen,
   onMoveTo,
   onMoveStep,
+  otherPhases = [],
+  onMoveToPhase,
   isFirst = false,
   isLast = false,
 }: BoardCardProps) {
@@ -127,6 +132,17 @@ export function BoardCard({
                     {label(s)}
                   </DropdownMenuItem>
                 ))}
+                {onMoveToPhase && otherPhases.length ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Move to phase</DropdownMenuLabel>
+                    {otherPhases.map((p) => (
+                      <DropdownMenuItem key={p.id} onSelect={() => onMoveToPhase(task, p.id)}>
+                        {p.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled={isFirst} onSelect={() => onMoveStep(task, -1)}>
                   Move up

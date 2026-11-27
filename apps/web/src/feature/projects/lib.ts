@@ -81,7 +81,12 @@ export const WORK_SORTS: ReadonlyArray<{ value: WorkSort; label: string }> = [
 
 /** Search params shared by Board, List and Timeline on `/projects/$id`; absent keys mean "any". */
 export interface WorkSearch {
-  phase?: string
+  /** The phase's 1-based position in plan order, so URLs read `?phase=2` rather than an id. */
+  phase?: number
+  /** Feature 011: free text matched against title and owner name. */
+  q?: string
+  /** Feature 011: only the signed-in person's tasks. */
+  mine?: true
   owner?: string
   status?: TaskData['status']
   overdue?: boolean
@@ -99,15 +104,36 @@ const isWorkSort = (v: unknown): v is WorkSort =>
 /** Keeps only valid, present keys so URLs stay short and unknown values are dropped. */
 export function parseWorkSearch(raw: Record<string, unknown>): WorkSearch {
   const out: WorkSearch = {}
-  if (typeof raw.phase === 'string' && raw.phase) out.phase = raw.phase
+  const phase = Number(raw.phase)
+  if (raw.phase !== '' && raw.phase != null && Number.isInteger(phase) && phase >= 1)
+    out.phase = phase
   if (typeof raw.owner === 'string' && raw.owner) out.owner = raw.owner
   if (isTaskStatus(raw.status)) out.status = raw.status
   if (raw.overdue === true || raw.overdue === 'true') out.overdue = true
   if (typeof raw.department === 'string' && raw.department) out.department = raw.department
   if (isWorkSort(raw.sort) && raw.sort !== 'manual') out.sort = raw.sort
   if (typeof raw.task === 'string' && raw.task) out.task = raw.task
+  if (typeof raw.q === 'string') {
+    const q = raw.q.trim().slice(0, MAX_SEARCH_LENGTH)
+    if (q) out.q = q
+  }
+  if (raw.mine === true || raw.mine === 'true') out.mine = true
   return out
 }
+
+export const MAX_SEARCH_LENGTH = 100
+
+/** True when any narrowing filter is set (the sort and the open task are not filters). */
+export const hasWorkFilters = (search: WorkSearch): boolean =>
+  Boolean(
+    search.phase ||
+    search.owner ||
+    search.status ||
+    search.overdue ||
+    search.department ||
+    search.q ||
+    search.mine,
+  )
 
 export const workSortOf = (search: WorkSearch): WorkSort => search.sort ?? 'manual'
 
@@ -124,14 +150,155 @@ export function sortTasks<T extends TaskData>(tasks: T[], sort: WorkSort): T[] {
   return orderByPosition(tasks)
 }
 
-export function applyWorkFilters<T extends TaskData>(tasks: T[], search: WorkSearch): T[] {
+/** Phases in plan order; a phase's number is its index here plus one. */
+export const phasesInOrder = <T extends { order: number }>(phases: ReadonlyArray<T>): T[] =>
+  [...phases].sort((a, b) => a.order - b.order)
+
+/** The 1-based plan position of a phase, as shown in the URL and the filter. */
+export const phaseNumber = (phases: ReadonlyArray<PhaseData>, phaseId: string): number =>
+  phasesInOrder(phases).findIndex((p) => p.id === phaseId) + 1
+
+/** The phase at a 1-based plan position, or null when the number points past the plan. */
+export const phaseAt = (phases: ReadonlyArray<PhaseData>, n: number): PhaseData | null =>
+  phasesInOrder(phases)[n - 1] ?? null
+
+// ---- Feature 011: readability (hide done, search, counts, empty states) ----
+
+/** Case- and accent-insensitive comparison key. */
+export const normaliseText = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
+export const RECENT_DONE_MS = 7 * 24 * 60 * 60 * 1000
+
+/** A completed task still worth showing in the Complete column: finished within seven days. */
+export const isRecentlyDone = (
+  task: { status: TaskData['status']; completedAt?: string | null },
+  now: Date,
+): boolean =>
+  task.status === 'COMPLETE' &&
+  !!task.completedAt &&
+  now.getTime() - Date.parse(task.completedAt) < RECENT_DONE_MS
+
+export interface VisibleContext {
+  search: WorkSearch
+  phases: ReadonlyArray<PhaseData>
+  /** The signed-in person, for the Mine switch. */
+  userId: string | null
+  /** FR-003: when off, completed tasks are hidden. */
+  showDone: boolean
+  /** Board only: completed tasks inside the recent window stay visible while hiding. */
+  recentDoneVisible?: boolean
+  now?: Date
+}
+
+const matchesText = (task: TaskData, q: string): boolean => {
+  const needle = normaliseText(q)
+  if (!needle) return true
+  return (
+    normaliseText(task.title).includes(needle) ||
+    (!!task.owner && normaliseText(task.owner.name).includes(needle))
+  )
+}
+
+/**
+ * The tasks a work view draws, in this order of precedence (data-model.md › Derived values):
+ * hide done unless shown, filtered to Complete, opened directly, or recent on the Board; then
+ * the shared filters; then Mine and the search text. Pure, so every view agrees.
+ */
+export function visibleTasks<T extends TaskData>(tasks: T[], ctx: VisibleContext): T[] {
+  const { search, phases, userId, showDone, recentDoneVisible = false } = ctx
+  const now = ctx.now ?? new Date()
+  const phaseId = search.phase ? phaseAt(phases, search.phase)?.id : undefined
+  if (search.phase && !phaseId) return []
+  const keepDone = showDone || search.status === 'COMPLETE'
   return tasks.filter(
     (t) =>
-      (!search.phase || t.phaseId === search.phase) &&
+      (keepDone ||
+        t.status !== 'COMPLETE' ||
+        t.id === search.task ||
+        (recentDoneVisible && isRecentlyDone(t, now))) &&
+      (!phaseId || t.phaseId === phaseId) &&
       (!search.owner || t.owner?.id === search.owner) &&
       (!search.status || t.status === search.status) &&
-      (!search.overdue || t.overdue),
+      (!search.overdue || t.overdue) &&
+      (!search.mine || (!!userId && t.owner?.id === userId)) &&
+      (!search.q || matchesText(t, search.q)),
   )
+}
+
+/** Completed tasks per phase id, for the "N done" figure on List headers and lanes. */
+export function doneCountByPhase(tasks: ReadonlyArray<TaskData>): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const t of tasks)
+    if (t.status === 'COMPLETE') out.set(t.phaseId, (out.get(t.phaseId) ?? 0) + 1)
+  return out
+}
+
+/** Completed tasks that the current view leaves out. */
+export function hiddenDoneCount(
+  tasks: ReadonlyArray<TaskData>,
+  visible: ReadonlyArray<TaskData>,
+): number {
+  const shown = new Set(visible.map((t) => t.id))
+  return tasks.filter((t) => t.status === 'COMPLETE' && !shown.has(t.id)).length
+}
+
+export interface MatchCount {
+  matching: number
+  total: number
+}
+
+/** `matching of total` per container key, e.g. per status or per phase. */
+export function matchCounts<T extends TaskData>(
+  visible: ReadonlyArray<T>,
+  all: ReadonlyArray<T>,
+  keyOf: (task: T) => string,
+): Map<string, MatchCount> {
+  const out = new Map<string, MatchCount>()
+  for (const t of all) {
+    const key = keyOf(t)
+    const entry = out.get(key) ?? { matching: 0, total: 0 }
+    entry.total += 1
+    out.set(key, entry)
+  }
+  for (const t of visible) {
+    const entry = out.get(keyOf(t))
+    if (entry) entry.matching += 1
+  }
+  return out
+}
+
+/** A `setSearch` patch that removes every narrowing filter and keeps sort and the open task. */
+export const CLEARED_FILTERS: Partial<WorkSearch> = {
+  phase: undefined,
+  owner: undefined,
+  status: undefined,
+  overdue: undefined,
+  department: undefined,
+  q: undefined,
+  mine: undefined,
+}
+
+export type EmptyReason = 'none' | 'all-done' | 'no-match' | 'only-done-match'
+
+/**
+ * Why a view shows nothing: no tasks at all, everything is done and hidden, the filters match
+ * nothing, or they match only hidden completed tasks. Null when the view is not empty.
+ */
+export function emptyReason(
+  all: ReadonlyArray<TaskData>,
+  visible: ReadonlyArray<TaskData>,
+  ctx: VisibleContext,
+): EmptyReason | null {
+  if (visible.length > 0) return null
+  if (all.length === 0) return 'none'
+  if (!hasWorkFilters(ctx.search)) return 'all-done'
+  const withDone = visibleTasks([...all], { ...ctx, showDone: true })
+  return withDone.length > 0 ? 'only-done-match' : 'no-match'
 }
 
 export interface StatusColumn<T> {
@@ -160,9 +327,10 @@ export function groupByPhase<T extends TaskData>(
   sort: WorkSort = 'manual',
 ): PhaseGroup<T>[] {
   const sorted = sortTasks(tasks, sort)
-  return [...phases]
-    .sort((a, b) => a.order - b.order)
-    .map((phase) => ({ phase, tasks: sorted.filter((t) => t.phaseId === phase.id) }))
+  return phasesInOrder(phases).map((phase) => ({
+    phase,
+    tasks: sorted.filter((t) => t.phaseId === phase.id),
+  }))
 }
 
 export interface Neighbours {

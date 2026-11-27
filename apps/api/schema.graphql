@@ -620,6 +620,11 @@ type ProjectSummary {
 
 type ProjectTask {
   comments: [TaskComment!]!
+
+  """
+  When the status last became COMPLETE; null while not complete (feature 011).
+  """
+  completedAt: DateTime
   createdAt: DateTime!
   description: String
 

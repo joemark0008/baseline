@@ -22,6 +22,7 @@ const task = (id: string, position: number, over: Partial<TaskData> = {}): TaskD
   predecessor: null,
   position,
   predecessorConflict: false,
+  completedAt: null,
   createdAt: '2026-11-01T00:00:00Z',
   updatedAt: '2026-11-01T00:00:00Z',
   ...over,
@@ -68,6 +69,63 @@ function renderList(over: Partial<TaskListProps> = {}, mocks: MockedResponse[] =
 }
 
 describe('TaskList', () => {
+  it('shows done and overdue figures and resolves drops against the full order (feature 011)', async () => {
+    const hidden = [
+      task('z', 4, { status: 'COMPLETE', completedAt: '2026-10-01T00:00:00Z' }),
+      task('zz', 5, { status: 'COMPLETE', phaseId: 'ph2', completedAt: '2026-10-01T00:00:00Z' }),
+    ]
+    const visible = [
+      task('a', 1),
+      task('b', 2, { overdue: true }),
+      task('c', 3, { phaseId: 'ph2' }),
+    ]
+    const { onMove } = renderList({
+      tasks: visible,
+      allTasks: [...visible, ...hidden],
+      doneCounts: new Map([['ph1', 1]]),
+    })
+    const kickoff = screen.getAllByRole('region')[0]
+    expect(within(kickoff).getByText('1 done')).toBeInTheDocument()
+    expect(within(kickoff).getByText('1 overdue')).toBeInTheDocument()
+    expect(within(kickoff).getAllByRole('row')).toHaveLength(3)
+    expect(within(screen.getAllByRole('region')[1]).getByText('0 done')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Task A' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Data Gathering' }))
+    expect(onMove).toHaveBeenLastCalledWith({ id: 'a', phaseId: 'ph2', afterTaskId: 'zz' })
+  })
+
+  it('folds phases through the shared state and keeps their figures and drop target (US3)', async () => {
+    const collapsed = new Set(['ph1'])
+    const folding = {
+      isCollapsed: (id: string) => collapsed.has(id),
+      toggle: vi.fn(),
+      collapseAll: vi.fn(),
+      expandAll: vi.fn(),
+    }
+    renderList({ folding, doneCounts: new Map([['ph1', 2]]) })
+    const [kickoff, gathering] = screen.getAllByRole('region')
+    expect(within(kickoff).queryByRole('table')).not.toBeInTheDocument()
+    expect(within(kickoff).getByText('2 done')).toBeInTheDocument()
+    expect(within(kickoff).getByLabelText('2 tasks in Kickoff')).toBeInTheDocument()
+    expect(within(kickoff).getByRole('button', { name: /Kickoff/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(within(gathering).getByRole('table')).toBeInTheDocument()
+    await userEvent.click(within(kickoff).getByRole('button', { name: /Kickoff/ }))
+    expect(folding.toggle).toHaveBeenCalledWith('ph1')
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(folding.collapseAll).toHaveBeenCalledWith(['ph1', 'ph2'])
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(folding.expandAll).toHaveBeenCalled()
+  })
+
+  it('shows matching of total while filtering', () => {
+    renderList({ tasks: [tasks[0]], allTasks: tasks, filtered: true })
+    expect(screen.getByLabelText('1 of 2 tasks in Kickoff')).toBeInTheDocument()
+    expect(screen.getByLabelText('0 of 1 tasks in Data Gathering')).toBeInTheDocument()
+  })
+
   it('groups tasks by phase in plan order with counts and collapsible groups', async () => {
     renderList()
     const groups = screen.getAllByRole('region')

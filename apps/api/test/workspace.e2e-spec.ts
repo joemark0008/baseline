@@ -297,6 +297,40 @@ describeWithDb('Project workspace (e2e)', () => {
     )
   })
 
+  it('stamps completedAt on completion, clears it on reopening, and the backfill holds (feature 011)', async () => {
+    const UPDATE =
+      'mutation ($i: UpdateTaskInput!) { updateProjectTask(input: $i) { id status completedAt } }'
+    type Stamped = { status: string; completedAt: string | null }
+    const task = byTitle('B')
+    const done = await gql<{ updateProjectTask: Stamped }>(member.cookie, UPDATE, {
+      i: { id: task.id, status: 'COMPLETE' },
+    })
+    expect(done.errors).toBeUndefined()
+    const at = done.data!.updateProjectTask.completedAt
+    expect(at).not.toBeNull()
+    expect(Math.abs(Date.now() - Date.parse(at!))).toBeLessThan(10_000)
+    const reopened = await gql<{ updateProjectTask: Stamped }>(member.cookie, UPDATE, {
+      i: { id: task.id, status: 'IN_PROGRESS' },
+    })
+    expect(reopened.data!.updateProjectTask.completedAt).toBeNull()
+    const moved = await gql<{ moveProjectTask: Stamped }>(
+      member.cookie,
+      'mutation ($i: MoveTaskInput!) { moveProjectTask(input: $i) { id status completedAt } }',
+      { i: { id: task.id, status: 'COMPLETE' } },
+    )
+    expect(moved.data!.moveProjectTask.completedAt).not.toBeNull()
+    const prisma = app.get(PrismaService).client
+    const unstamped = await prisma.projectTask.count({
+      where: { status: 'COMPLETE', completedAt: null },
+    })
+    expect(unstamped).toBe(0)
+    const stale = await prisma.projectTask.count({
+      where: { status: { not: 'COMPLETE' }, completedAt: { not: null } },
+    })
+    expect(stale).toBe(0)
+    await gql(member.cookie, UPDATE, { i: { id: task.id, status: 'UPCOMING' } })
+  })
+
   it('sorts projects by go-live and counts my open tasks (US5)', async () => {
     await gql(
       manager.cookie,

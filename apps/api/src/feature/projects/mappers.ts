@@ -42,6 +42,7 @@ export interface TaskRow {
   dueDate: Date | null
   predecessor: { id: string; title: string; dueDate?: Date | null } | null
   position?: number
+  completedAt?: Date | null
   createdAt: Date
   updatedAt: Date
   comments?: CommentRow[]
@@ -163,6 +164,7 @@ export function toTask(row: TaskRow, today?: string): ProjectTask {
     predecessor: row.predecessor ? { id: row.predecessor.id, title: row.predecessor.title } : null,
     position: row.position ?? 0,
     predecessorConflict: predecessorConflict(row),
+    completedAt: row.completedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     comments: (row.comments ?? []).map(toComment),

@@ -306,8 +306,9 @@ lands). Sign-up without an invite is rejected by the API.
 
 **Project workspace:** `/projects` lists your implementation projects as cards; a project opens
 on the work view you used last (`/projects/:id/work`). The three work views share one set of
-filters in the URL: **Board** (`/board`, cards by status), **List** (`/list`, rows grouped by
-phase with quick-add and inline editing) and **Timeline** (`/timeline`, phase and task bars).
+filters in the URL, where a phase is its number in plan order (`?phase=2`): **Board** (`/board`,
+cards by status), **List** (`/list`, rows grouped by phase with quick-add and inline editing) and
+**Timeline** (`/timeline`, phase and task bars).
 Everything moves by drag and drop, with a keyboard and menu equivalent for each drag:
 
 | Where                                   | Pointer                                 | Keyboard / menu                                                                                               |
@@ -316,9 +317,19 @@ Everything moves by drag and drop, with a keyboard and menu equivalent for each 
 | Timeline bar                            | drag the bar to shift, an end to resize | focus the bar: ← → one day, Shift ×7, Alt moves the due end, Alt+Shift the start; Enter saves, Escape cancels |
 | Overview phases, Readiness deliverables | drag the grip                           | row menu: Move up / Move down / Move to phase                                                                 |
 | Any work view                           |                                         | `n` focuses quick-add (List) or opens New task (Board)                                                        |
+| Any work view                           |                                         | `/` focuses the search box; Escape clears it                                                                  |
 
 Tasks keep one manual order per project (`position`); every drop is saved in the background and
 rolled back with a message if the server refuses it.
+
+**Keeping large projects readable:** completed tasks are hidden by default (the Board's Complete
+column keeps the last seven days, from `ProjectTask.completedAt`); **Show done** brings them back.
+The filter bar has a search box (`/` focuses it, Escape clears; matches title and owner name,
+ignoring case and accents) and a **Mine** switch, both carried in the URL. Phases fold on the
+List, the Timeline and the Board, with **Collapse all / Expand all**; a drop on a folded phase
+lands last in it. The Board's **Lanes by phase** layout crosses phases with the status columns,
+so one drop can change phase and status together. Show done, folds and the Board layout are
+remembered per project on the device, next to the last view and its filters.
 
 ## Roles and permissions
 

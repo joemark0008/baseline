@@ -3,6 +3,7 @@ import { APP_ENV, type AppEnv } from '../../config/env.js'
 import { EmailService } from '../../email/email.service.js'
 import { PrismaService, type PrismaTx } from '../../prisma/prisma.service.js'
 import { recordActivity } from './activity.js'
+import { completionStamp } from './completion.js'
 import { assertDateOrder, fromIsoDate, toIsoDate, todayIso } from './dates.js'
 import type { TaskPriority, TaskSort, TaskStatus } from './entities/enums.js'
 import { ProjectTask, TaskComment } from './entities/project.entity.js'
@@ -115,6 +116,7 @@ export class TasksService {
           dueDate: fromIsoDate(input.dueDate),
           predecessorId: input.predecessorId || null,
           position: (last?.position ?? 0) + 1,
+          ...completionStamp(null, input.status ?? 'UPCOMING'),
           createdById: actorId,
         },
         include: TASK_INCLUDE,
@@ -169,6 +171,7 @@ export class TasksService {
             : {}),
           ...(input.ownerId !== undefined ? { ownerId: input.ownerId || null } : {}),
           ...(input.status ? { status: input.status } : {}),
+          ...(input.status ? completionStamp(current.status, input.status) : {}),
           ...(input.priority ? { priority: input.priority } : {}),
           ...(input.startDate !== undefined ? { startDate: fromIsoDate(input.startDate) } : {}),
           ...(input.dueDate !== undefined ? { dueDate: fromIsoDate(input.dueDate) } : {}),
@@ -231,7 +234,7 @@ export class TasksService {
       if (changes.length === 0) return null
       const updated = await tx.projectTask.update({
         where: { id: current.id },
-        data: { status, phaseId, position },
+        data: { status, phaseId, position, ...completionStamp(current.status, status) },
         include: TASK_INCLUDE,
       })
       await recordActivity(tx, {

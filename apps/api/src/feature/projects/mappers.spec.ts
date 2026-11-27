@@ -39,6 +39,12 @@ describe('mappers (feature 010)', () => {
     expect(toTask({ ...base, position: undefined }).position).toBe(0)
   })
 
+  it('carries completedAt and defaults it to null (feature 011)', () => {
+    const at = new Date('2026-11-20T08:00:00Z')
+    expect(toTask({ ...base, status: 'COMPLETE', completedAt: at }).completedAt).toBe(at)
+    expect(toTask(base).completedAt).toBeNull()
+  })
+
   it('maps the filtered relation count to myOpenTasks', () => {
     const row = {
       id: 'p1',

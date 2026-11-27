@@ -176,6 +176,8 @@ model ProjectTask {
   successors    ProjectTask[] @relation("TaskPredecessor")
   /// Manual order within the project; Board columns and List groups both respect it (feature 010).
   position      Float         @default(0)
+  /// When the status last became COMPLETE; null while not complete (feature 011).
+  completedAt   DateTime?
   createdById   String
   createdBy     User          @relation("ProjectTaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt     DateTime      @default(now())

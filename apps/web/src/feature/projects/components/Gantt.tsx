@@ -6,7 +6,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { restrictToHorizontalAxis } from '@dnd-kit/modifiers'
-import { AlertTriangle, Link2 } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Link2 } from 'lucide-react'
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { usePointerSensors } from '../dnd/sensors'
 import {
@@ -31,6 +31,9 @@ export interface GanttProps {
     phaseId: string,
     range: { startDate: string; endDate: string },
   ) => Promise<void> | void
+  /** Feature 011 FR-012: folded phases draw their phase row only. */
+  collapsedPhaseIds?: ReadonlySet<string>
+  onTogglePhase?: (phaseId: string) => void
 }
 
 type Edge = 'body' | 'start' | 'due'
@@ -121,6 +124,8 @@ export function Gantt({
   onSelectTask,
   onTaskDatesChange,
   onPhaseDatesChange,
+  collapsedPhaseIds,
+  onTogglePhase,
 }: GanttProps) {
   const sensors = usePointerSensors()
   const [pending, setPending] = useState<Pending | null>(null)
@@ -300,13 +305,33 @@ export function Gantt({
                   'phase',
                   phase.id,
                 )
+                const folded = collapsedPhaseIds?.has(phase.id) ?? false
                 return (
                   <div className="contents" key={phase.id}>
                     <div className="sticky left-0 z-10 flex min-w-0 items-center gap-2 border-t bg-card px-4 py-3">
+                      {onTogglePhase ? (
+                        <button
+                          type="button"
+                          aria-expanded={!folded}
+                          aria-label={`${folded ? 'Expand' : 'Collapse'} ${phase.name}`}
+                          className="flex shrink-0 rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          onClick={() => onTogglePhase(phase.id)}
+                        >
+                          <ChevronRight
+                            aria-hidden="true"
+                            className={`size-4 motion-safe:transition-transform ${folded ? '' : 'rotate-90'}`}
+                          />
+                        </button>
+                      ) : null}
                       <span className="text-xs text-muted-foreground">
                         {String(index + 1).padStart(2, '0')}
                       </span>
                       <span className="truncate text-sm font-medium">{phase.name}</span>
+                      {folded ? (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          ({phase.tasks.length} {phase.tasks.length === 1 ? 'task' : 'tasks'})
+                        </span>
+                      ) : null}
                     </div>
                     <div
                       className="relative border-t border-l bg-background"
@@ -335,7 +360,7 @@ export function Gantt({
                         </span>
                       )}
                     </div>
-                    {[...phase.tasks]
+                    {(folded ? [] : [...phase.tasks])
                       .sort((a, b) => a.position - b.position)
                       .map((task) => {
                         const range = previewRange(

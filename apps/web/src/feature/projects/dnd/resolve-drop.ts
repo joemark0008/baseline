@@ -39,6 +39,14 @@ export function resolveDrop(
   activeId: string,
   overId: UniqueIdentifier | null,
   isContainer: (id: UniqueIdentifier) => string | null,
+  options: {
+    /**
+     * Feature 011 (research.md › Decision 6): the full order per container, hidden items
+     * included. A drop onto a container itself (a folded group, an empty column) then lands
+     * after the container's real last item, not after the last visible one.
+     */
+    full?: Containers
+  } = {},
 ): { container: string; neighbours: Neighbours } | null {
   const from = containerOf(origin, activeId, isContainer)
   const current = containerOf(live, activeId, isContainer)
@@ -46,6 +54,8 @@ export function resolveDrop(
   if (!from || !to) return null
   const overItem = overId !== null && isContainer(overId) === null ? String(overId) : null
   if (to !== from) {
+    if (overItem === null && options.full)
+      return { container: to, neighbours: neighboursFor(options.full[to] ?? [], activeId, null) }
     const ids = live[to] ?? []
     const neighbours = ids.includes(activeId)
       ? neighboursAt(ids, activeId)
