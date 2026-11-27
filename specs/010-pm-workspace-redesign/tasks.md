@@ -194,7 +194,7 @@ as `data-model.md › Entity.field` and not restated.
 - [x] T058 [P] Load test locally: seed a project with 300 tasks through the e2e harness or a throwaway script in the scratchpad, open Board and List on `baseline-dev`, confirm open < 2 s and drag feedback < 100 ms (SC-006); memoise columns/groups if needed.
 - [x] T059 [P] Update `README.md` (workspace views, drag and drop, keyboard map summary) and `specs/010-pm-workspace-redesign/quickstart.md` for any step that changed; no other planning docs.
 - [x] T060 Run the full gate: `npm test -w apps/api`, `DATABASE_URL=… npm run test:e2e -w apps/api`, `npm run schema:check`, `npm run codegen -w apps/web && npm test -w apps/web -- --run`, `npm run typecheck && npm run lint && npm run build`; walk `quickstart.md` 1–12.
-- [ ] T061 Commit as `feat(010): project management workspace with drag and drop` including the migration, `apps/api/schema.graphql`, `package-lock.json` and `specs/010-pm-workspace-redesign/`; rebuild and redeploy `baseline` per `plan.md › Deployment Notes`.
+- [x] T061 Commit as `feat(010): project management workspace with drag and drop` including the migration, `apps/api/schema.graphql`, `package-lock.json` and `specs/010-pm-workspace-redesign/`; rebuild and redeploy `baseline` per `plan.md › Deployment Notes`.
 
 ---
 
